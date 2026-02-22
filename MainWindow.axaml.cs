@@ -34,10 +34,7 @@ public partial class MainWindow : Window
     private StackPanel[] _allPanels = null!;
     private List<Department> _departmentList = new();
 
-    // Fix 4: Safe in-place edit tracking
     private int? _editingPatientId = null;
-
-    // Fix 5: Delete confirmation
     private Action? _pendingDeleteAction = null;
 
     public MainWindow()
@@ -81,7 +78,7 @@ public partial class MainWindow : Window
         {
             foreach (var p in _allPanels) p.IsVisible = false;
 
-            // Bug fix: Reset edit mode when switching panels
+            // Reset edit mode when switching panels
             if (_editingPatientId.HasValue)
             {
                 _editingPatientId = null;
@@ -118,13 +115,12 @@ public partial class MainWindow : Window
             string nid = TxtPatientNationalId.Text?.Trim() ?? "";
             string phone = TxtPatientPhone.Text?.Trim() ?? "";
 
-            if (string.IsNullOrEmpty(fn) || string.IsNullOrEmpty(ln)) { ShowValidation(TxtPatientValidation, "Ad ve Soyad bo\u015f olamaz!"); return; }
-            if (nid.Length != 11 || !nid.All(char.IsDigit)) { ShowValidation(TxtPatientValidation, "TC 11 hane olmal\u0131!"); return; }
+            if (string.IsNullOrEmpty(fn) || string.IsNullOrEmpty(ln)) { ShowValidation(TxtPatientValidation, "Ad ve Soyad boş olamaz!"); return; }
+            if (nid.Length != 11 || !nid.All(char.IsDigit)) { ShowValidation(TxtPatientValidation, "TC 11 hane olmalı!"); return; }
             TxtPatientValidation.Text = "";
 
             DateTime bd = DpPatientBirthDate.SelectedDate?.DateTime ?? DateTime.Today;
 
-            // Fix 4: In-place update mode
             if (_editingPatientId.HasValue)
             {
                 int editId = _editingPatientId.Value;
@@ -146,7 +142,7 @@ public partial class MainWindow : Window
 
                     _editingPatientId = null;
                     BtnRegisterPatient.Content = "✓ Hasta Kaydet";
-                    SetStatus($"✓ Hasta g\u00fcncellendi! ID: {editId}");
+                    SetStatus($"✓ Hasta güncellendi! ID: {editId}");
                 }
             }
             else
@@ -157,7 +153,7 @@ public partial class MainWindow : Window
                 int id = 1;
                 while (_patients.Get(id) != null) id++;
                 if (id > _patientIdCounter) _patientIdCounter = id;
-                
+
                 var p = new Patient(id, fn, ln, nid, phone, bd);
                 _patients.Put(id, p); _patientBST.Insert(p); _patientAVL.Insert(p);
                 _undoStack.Push("PATIENT_ADD:" + id); _db.SavePatient(p);
@@ -201,7 +197,7 @@ public partial class MainWindow : Window
             int id = 1;
             while (_doctors.Get(id) != null) id++;
             if (id > _doctorIdCounter) _doctorIdCounter = id;
-            
+
             var d = new Doctor(id, fn, ln, dept, phone);
 
             if (dept.AddDoctor(d))
@@ -269,7 +265,7 @@ public partial class MainWindow : Window
             app.Patient.AddVisit(DateTime.Now, d, "Muayene tamamlandı");
             app.Status = "Completed";
             _db.SaveVisit(app.Patient.Id, d.Id, DateTime.Now, "Muayene tamamlandı");
-            _db.SaveAppointment(app); // Fix 3: Persist status change to DB
+            _db.SaveAppointment(app);
             ShowDoctorQueue_Click(sender, e); RefreshAppointmentList();
             SetStatus($"✓ Muayene: {app.Patient.FullName}");
         }
@@ -392,8 +388,12 @@ public partial class MainWindow : Window
         {
             int id = int.Parse(parts[1]);
             var d = _doctors.Get(id);
-            if (d != null) { d.Department?.Doctors.Remove(d); _doctors.Remove(id); _db.DeleteDoctor(id);
-                if (id == _doctorIdCounter) _doctorIdCounter--; TxtUndoResult.Text = "✓ Doktor silindi."; }
+            if (d != null)
+            {
+                d.Department?.Doctors.Remove(d); _doctors.Remove(id); _db.DeleteDoctor(id);
+                if (id == _doctorIdCounter) _doctorIdCounter--;
+                TxtUndoResult.Text = "✓ Doktor silindi.";
+            }
         }
         else if (parts[0] == "APPOINTMENT_ADD")
         {
@@ -406,7 +406,7 @@ public partial class MainWindow : Window
             if (node.Data is ERPriorityQueue.ERPatient erp)
             { _erQueue.RemovePatientById(erp.Patient.Id); TxtUndoResult.Text = "✓ Acil servis hastası silindi."; }
         }
-        else if (parts[0] == "PATIENT_DELETE") // Bug fix: Handle undo for patient deletion
+        else if (parts[0] == "PATIENT_DELETE")
         {
             if (node.Data is Patient restored)
             {
@@ -417,14 +417,17 @@ public partial class MainWindow : Window
                 TxtUndoResult.Text = "✓ Hasta geri getirildi.";
             }
         }
-        else if (parts[0] == "DOCTOR_DELETE") // Bug fix: Handle undo for doctor deletion
+        else if (parts[0] == "DOCTOR_DELETE")
         {
             if (node.Data is Doctor restored)
             {
                 _doctors.Put(restored.Id, restored);
-                restored.Department?.AddDoctor(restored);
+                // FIX: Kapasite doluysa uyarı ver, sessizce başarısız olma
+                bool added = restored.Department?.AddDoctor(restored) ?? true;
                 _db.SaveDoctor(restored);
-                TxtUndoResult.Text = "✓ Doktor geri getirildi.";
+                TxtUndoResult.Text = added
+                    ? "✓ Doktor geri getirildi."
+                    : "⚠ Doktor kaydı geri geldi fakat bölüm kapasitesi dolu!";
             }
         }
 
@@ -495,27 +498,27 @@ public partial class MainWindow : Window
     }
 
     private void RefreshAllViews() { RefreshPatientList(); RefreshDoctorList(); RefreshAppointmentList(); RefreshDepartmentList(); UpdateNotifications(); }
-    private void UpdateUndoPeek() { TxtUndoPeek.Text = _undoStack.PeekOperation() is string op ? $"S\u0131radaki: {op}" : "Stack bo\u015f."; }
-    private void ShowMsg(string msg) { SetStatus("\u26a0 " + msg); }
+    private void UpdateUndoPeek() { TxtUndoPeek.Text = _undoStack.PeekOperation() is string op ? $"Sıradaki: {op}" : "Stack boş."; }
+    private void ShowMsg(string msg) { SetStatus("⚠ " + msg); }
     private void SetStatus(string msg) { TxtStatusBar.Text = msg; }
-    private void ShowValidation(TextBlock tb, string msg) { tb.Text = "\u26a0 " + msg; SetStatus("\u26a0 " + msg); }
+    private void ShowValidation(TextBlock tb, string msg) { tb.Text = "⚠ " + msg; SetStatus("⚠ " + msg); }
 
     // ============ PATIENT PROFILE ============
     private void ShowProfile_Click(object? sender, RoutedEventArgs e)
     {
-        if (DgPatients.SelectedItem == null) { ShowMsg("Profil i\u00e7in bir hasta se\u00e7in!"); return; }
+        if (DgPatients.SelectedItem == null) { ShowMsg("Profil için bir hasta seçin!"); return; }
         if (DgPatients.SelectedItem is not Patient sel) return;
         int id = sel.Id;
         var p = _patients.Get(id);
         if (p == null) return;
 
         TxtProfileName.Text = $"{p.FullName} (ID: {p.Id})";
-        TxtProfileDetails.Text = $"TC: {p.NationalId} | Telefon: {p.Phone} | Do\u011fum: {p.BirthDate:dd/MM/yyyy}";
+        TxtProfileDetails.Text = $"TC: {p.NationalId} | Telefon: {p.Phone} | Doğum: {p.BirthDate:dd/MM/yyyy}";
 
         var apps = _appointments.Values().Where(a => a.Patient.Id == id)
             .Select(a => $"{a.Start:dd/MM HH:mm} — Dr. {a.Doctor.FullName} [{a.Status}]").ToList();
         LbProfileAppointments.ItemsSource = apps.Count > 0 ? apps : new[] { "Randevu yok." };
-        LbProfileHistory.ItemsSource = p.GetHistory().Count > 0 ? p.GetHistory() : new List<string> { "Ge\u00e7mi\u015f yok." };
+        LbProfileHistory.ItemsSource = p.GetHistory().Count > 0 ? p.GetHistory() : new List<string> { "Geçmiş yok." };
 
         PatientProfileCard.IsVisible = true;
     }
@@ -525,9 +528,9 @@ public partial class MainWindow : Window
     // ============ DOCTOR AVAILABILITY ============
     private void ShowAvailability_Click(object? sender, RoutedEventArgs e)
     {
-        if (!int.TryParse(TxtAvailDoctorId.Text, out int did)) { ShowMsg("Ge\u00e7ersiz Doktor ID!"); return; }
+        if (!int.TryParse(TxtAvailDoctorId.Text, out int did)) { ShowMsg("Geçersiz Doktor ID!"); return; }
         var doc = _doctors.Get(did);
-        if (doc == null) { ShowMsg("Doktor bulunamad\u0131!"); return; }
+        if (doc == null) { ShowMsg("Doktor bulunamadı!"); return; }
 
         DateTime day = DpAvailDate.SelectedDate?.DateTime.Date ?? DateTime.Today;
         var slots = new List<object>();
@@ -540,16 +543,14 @@ public partial class MainWindow : Window
             var slotEnd = slotStart.AddHours(1);
             var conflict = docApps.FirstOrDefault(a => a.Start < slotEnd && a.End > slotStart);
             if (conflict != null)
-                slots.Add(new { Icon = "\ud83d\udd34", TimeSlot = $"{h:00}:00-{h+1:00}:00",
-                    StatusText = $"Dolu — {conflict.Patient.FullName}",
-                    BgColor = "#2D1518" });
+                slots.Add(new { Icon = "🔴", TimeSlot = $"{h:00}:00-{h+1:00}:00",
+                    StatusText = $"Dolu — {conflict.Patient.FullName}", BgColor = "#2D1518" });
             else
-                slots.Add(new { Icon = "\ud83d\udfe2", TimeSlot = $"{h:00}:00-{h+1:00}:00",
-                    StatusText = "M\u00fcsait",
-                    BgColor = "#152D18" });
+                slots.Add(new { Icon = "🟢", TimeSlot = $"{h:00}:00-{h+1:00}:00",
+                    StatusText = "Müsait", BgColor = "#152D18" });
         }
         IcAvailability.ItemsSource = slots;
-        SetStatus($"\u2713 Dr. {doc.FullName} — {day:dd/MM/yyyy} m\u00fcsaitlik durumu");
+        SetStatus($"✓ Dr. {doc.FullName} — {day:dd/MM/yyyy} müsaitlik durumu");
     }
 
     // ============ THEME TOGGLE ============
@@ -562,8 +563,8 @@ public partial class MainWindow : Window
             Avalonia.Application.Current.RequestedThemeVariant =
                 _isDark ? Avalonia.Styling.ThemeVariant.Dark : Avalonia.Styling.ThemeVariant.Light;
         }
-        BtnThemeToggle.Content = _isDark ? "\ud83c\udf19  Koyu Tema" : "\u2600\ufe0f  A\u00e7\u0131k Tema";
-        SetStatus(_isDark ? "Koyu tema aktif" : "A\u00e7\u0131k tema aktif");
+        BtnThemeToggle.Content = _isDark ? "🌙  Koyu Tema" : "☀️  Açık Tema";
+        SetStatus(_isDark ? "Koyu tema aktif" : "Açık tema aktif");
     }
 
     // ============ DASHBOARD ============
@@ -599,23 +600,24 @@ public partial class MainWindow : Window
             .Where(d => d.FirstName.ToLowerInvariant().Contains(q) ||
                         d.LastName.ToLowerInvariant().Contains(q) ||
                         (d.Department?.Name ?? "").ToLowerInvariant().Contains(q))
-            .Select(d => new DoctorViewModel { Id = d.Id, FirstName = d.FirstName, LastName = d.LastName, DeptName = d.Department?.Name ?? "N/A", Phone = d.Phone }).ToList();
+            .Select(d => new DoctorViewModel
+            { Id = d.Id, FirstName = d.FirstName, LastName = d.LastName,
+              DeptName = d.Department?.Name ?? "N/A", Phone = d.Phone }).ToList();
     }
 
     // ============ DELETE / EDIT ============
     private void DeletePatient_Click(object? sender, RoutedEventArgs e)
     {
-        if (DgPatients.SelectedItem == null) { ShowMsg("Silmek i\u00e7in bir hasta se\u00e7in!"); return; }
+        if (DgPatients.SelectedItem == null) { ShowMsg("Silmek için bir hasta seçin!"); return; }
         if (DgPatients.SelectedItem is not Patient sel) return;
         int id = sel.Id;
         var p = _patients.Get(id);
         if (p == null) return;
 
-        // Fix 5: Confirmation dialog
-        TxtDeleteConfirmMsg.Text = $"\u26a0\ufe0f '{p.FullName}' (ID: {id}) hastas\u0131n\u0131 silmek istedi\u011finize emin misiniz?";
+        TxtDeleteConfirmMsg.Text = $"⚠️ '{p.FullName}' (ID: {id}) hastasını silmek istediğinize emin misiniz?";
         _pendingDeleteAction = () =>
         {
-            _undoStack.Push("PATIENT_DELETE:" + id, p); // Bug fix: Add deletion to undo stack
+            _undoStack.Push("PATIENT_DELETE:" + id, p);
 
             foreach (int appId in _appointments.Values().Where(a => a.Patient.Id == id).Select(a => a.Id).ToList())
             { _appointments.Remove(appId); _db.DeleteAppointment(appId); }
@@ -623,21 +625,19 @@ public partial class MainWindow : Window
             _patients.Remove(id); _patientBST.Delete(p.FirstName, p.LastName); _patientAVL.Delete(p.FirstName, p.LastName);
             _db.DeletePatient(id);
             RefreshAllViews();
-            SetStatus($"\u2713 Hasta silindi: {p.FullName}");
+            SetStatus($"✓ Hasta silindi: {p.FullName}");
         };
         PanelDeleteConfirm.IsVisible = true;
     }
 
-    // Fix 4: Safe in-place edit
     private void EditPatient_Click(object? sender, RoutedEventArgs e)
     {
-        if (DgPatients.SelectedItem == null) { ShowMsg("D\u00fczenlemek i\u00e7in bir hasta se\u00e7in!"); return; }
+        if (DgPatients.SelectedItem == null) { ShowMsg("Düzenlemek için bir hasta seçin!"); return; }
         if (DgPatients.SelectedItem is not Patient sel) return;
         int id = sel.Id;
         var p = _patients.Get(id);
         if (p == null) return;
 
-        // Just populate form — no deletion
         _editingPatientId = id;
         TxtPatientFirstName.Text = p.FirstName;
         TxtPatientLastName.Text = p.LastName;
@@ -645,25 +645,24 @@ public partial class MainWindow : Window
         TxtPatientPhone.Text = p.Phone;
         DpPatientBirthDate.SelectedDate = new DateTimeOffset(p.BirthDate);
 
-        BtnRegisterPatient.Content = "\u2713 G\u00fcncelle";
-        SetStatus($"\u270f\ufe0f D\u00fczenleniyor: {p.FullName} \u2014 De\u011fi\u015fiklikleri yap\u0131p 'G\u00fcncelle' butonuna bas\u0131n.");
+        BtnRegisterPatient.Content = "✓ Güncelle";
+        SetStatus($"✏️ Düzenleniyor: {p.FullName} — Değişiklikleri yapıp 'Güncelle' butonuna basın.");
     }
 
     private void DeleteDoctor_Click(object? sender, RoutedEventArgs e)
     {
-        if (DgDoctors.SelectedItem == null) { ShowMsg("Silmek i\u00e7in bir doktor se\u00e7in!"); return; }
+        if (DgDoctors.SelectedItem == null) { ShowMsg("Silmek için bir doktor seçin!"); return; }
         if (DgDoctors.SelectedItem is not DoctorViewModel sel) return;
         int id = sel.Id;
         var d = _doctors.Get(id);
         if (d == null) return;
 
-        // Fix 5: Confirmation dialog
-        TxtDeleteConfirmMsg.Text = $"\u26a0\ufe0f '{d.FullName}' (ID: {id}) doktoru silmek istedi\u011finize emin misiniz?";
+        TxtDeleteConfirmMsg.Text = $"⚠️ '{d.FullName}' (ID: {id}) doktoru silmek istediğinize emin misiniz?";
         _pendingDeleteAction = () =>
         {
-            _undoStack.Push("DOCTOR_DELETE:" + id, d); // Bug fix: Add deletion to undo stack
+            _undoStack.Push("DOCTOR_DELETE:" + id, d);
 
-            // Bug fix: Remove all appointments associated with this doctor first
+            // Doktorun tüm randevularını temizle (NullReferenceException önlemi)
             foreach (int appId in _appointments.Values().Where(a => a.Doctor.Id == id).Select(a => a.Id).ToList())
             {
                 _appointments.Remove(appId);
@@ -673,12 +672,11 @@ public partial class MainWindow : Window
             d.Department?.Doctors.Remove(d);
             _doctors.Remove(id); _db.DeleteDoctor(id);
             RefreshDoctorList(); RefreshDepartmentList();
-            SetStatus($"\u2713 Doktor silindi: {d.FullName}");
+            SetStatus($"✓ Doktor silindi: {d.FullName}");
         };
         PanelDeleteConfirm.IsVisible = true;
     }
 
-    // Fix 5: Confirmation handlers
     private void ConfirmDelete_Click(object? sender, RoutedEventArgs e)
     {
         _pendingDeleteAction?.Invoke();
@@ -690,7 +688,7 @@ public partial class MainWindow : Window
     {
         _pendingDeleteAction = null;
         PanelDeleteConfirm.IsVisible = false;
-        SetStatus("\u2713 Silme i\u015flemi iptal edildi.");
+        SetStatus("✓ Silme işlemi iptal edildi.");
     }
 
     // ============ SAMPLE DATA ============
@@ -740,10 +738,15 @@ public partial class MainWindow : Window
 
         foreach (var (id, pid, did, start, end, status) in _db.LoadAppointments())
         { var p = _patients.Get(pid); var d = _doctors.Get(did);
-          if (p != null && d != null) { var app = new Appointment(id, p, d, DateTime.Parse(start));
-            app.Status = status; _appointments.Put(id, app); 
-            if (status != "Completed") d.DailyQueue.Enqueue(app); // Bug fix: Only enqueue non-completed apps
-            if (id > _appointmentIdCounter) _appointmentIdCounter = id; } }
+          if (p != null && d != null)
+          {
+              var app = new Appointment(id, p, d, DateTime.Parse(start));
+              app.Status = status; _appointments.Put(id, app);
+              // FIX: Tamamlanmış randevuları kuyruğa ekleme — her restart'ta kuyruk şişmesin
+              if (status != "Completed") d.DailyQueue.Enqueue(app);
+              if (id > _appointmentIdCounter) _appointmentIdCounter = id;
+          }
+        }
     }
 
     // ============ REPORT EXPORT ============
@@ -757,18 +760,18 @@ public partial class MainWindow : Window
                 "th{background:#21262D;color:#58A6FF;padding:12px;text-align:left;border-bottom:2px solid #30363D}" +
                 "td{padding:10px;border-bottom:1px solid #30363D}" +
                 "tr:hover{background:#1C2128}.footer{margin-top:30px;color:#8B949E;font-size:12px}</style></head><body>" +
-                $"<h1>\ud83c\udfe5 Hasta Raporu</h1><p>Toplam: {_patients.Size} hasta | Tarih: {DateTime.Now:dd/MM/yyyy HH:mm}</p><table>" +
+                $"<h1>🏥 Hasta Raporu</h1><p>Toplam: {_patients.Size} hasta | Tarih: {DateTime.Now:dd/MM/yyyy HH:mm}</p><table>" +
                 "<tr><th>ID</th><th>Ad</th><th>Soyad</th><th>TC</th><th>Telefon</th></tr>";
 
             foreach (var p in _patients.Values())
                 html += $"<tr><td>{p.Id}</td><td>{p.FirstName}</td><td>{p.LastName}</td><td>{p.NationalId}</td><td>{p.Phone}</td></tr>";
 
-            html += "</table><p class='footer'>Student ID: 230316064 | Hastane Y\u00f6netim Sistemi</p></body></html>";
+            html += "</table><p class='footer'>Student ID: 230316064 | Hastane Yönetim Sistemi</p></body></html>";
 
             var path = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "hasta_raporu.html");
             System.IO.File.WriteAllText(path, html);
-            TxtReportStatus.Text = $"\u2713 Rapor kaydedildi: {path}";
-            SetStatus($"\u2713 Hasta raporu: {path}");
+            TxtReportStatus.Text = $"✓ Rapor kaydedildi: {path}";
+            SetStatus($"✓ Hasta raporu: {path}");
         }
         catch (Exception ex) { ShowMsg(ex.Message); }
     }
@@ -784,7 +787,7 @@ public partial class MainWindow : Window
                 "td{padding:10px;border-bottom:1px solid #30363D}" +
                 "tr:hover{background:#1C2128}.completed{color:#3FB950}.pending{color:#D29922}" +
                 ".footer{margin-top:30px;color:#8B949E;font-size:12px}</style></head><body>" +
-                $"<h1>\ud83d\udccb Randevu Raporu</h1><p>Toplam: {_appointments.Size} | Tarih: {DateTime.Now:dd/MM/yyyy HH:mm}</p><table>" +
+                $"<h1>📋 Randevu Raporu</h1><p>Toplam: {_appointments.Size} | Tarih: {DateTime.Now:dd/MM/yyyy HH:mm}</p><table>" +
                 "<tr><th>ID</th><th>Hasta</th><th>Doktor</th><th>Tarih</th><th>Durum</th></tr>";
 
             foreach (var a in _appointments.Values().OrderBy(a => a.Start))
@@ -794,12 +797,12 @@ public partial class MainWindow : Window
                         $"<td>{a.Start:dd/MM/yyyy HH:mm}</td><td class='{cls}'>{a.Status}</td></tr>";
             }
 
-            html += "</table><p class='footer'>Student ID: 230316064 | Hastane Y\u00f6netim Sistemi</p></body></html>";
+            html += "</table><p class='footer'>Student ID: 230316064 | Hastane Yönetim Sistemi</p></body></html>";
 
             var path = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "randevu_raporu.html");
             System.IO.File.WriteAllText(path, html);
-            TxtReportStatus.Text = $"\u2713 Rapor kaydedildi: {path}";
-            SetStatus($"\u2713 Randevu raporu: {path}");
+            TxtReportStatus.Text = $"✓ Rapor kaydedildi: {path}";
+            SetStatus($"✓ Randevu raporu: {path}");
         }
         catch (Exception ex) { ShowMsg(ex.Message); }
     }
@@ -810,25 +813,18 @@ public partial class MainWindow : Window
         var soon = _appointments.Values()
             .Where(a => a.Status == "Waiting" && a.Start > DateTime.Now && a.Start < DateTime.Now.AddMinutes(30)).ToList();
         int count = soon.Count + _erQueue.Size;
-        TxtNotifBadge.Text = $"\ud83d\udd14 {count}";
+        TxtNotifBadge.Text = $"🔔 {count}";
     }
 
     // ============ ROLE SYSTEM ============
     private void RoleChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (CbRole == null) return;
-        // Guard: buttons may not be initialized yet during startup
         if (BtnRegisterPatient == null) return;
 
-        int role = CbRole.SelectedIndex; // 0=Admin, 1=Doktor, 2=Hem\u015fire
+        int role = CbRole.SelectedIndex; // 0=Admin, 1=Doktor, 2=Hemşire
         bool isAdmin = role == 0;
         bool isDoctor = role == 1;
-        bool isNurse = role == 2;
-
-        // Fix 1: Actually enable/disable buttons per role
-        // Admin = full access
-        // Doktor = can register patients, create appointments, examine; NO delete, dept, undo
-        // Hem\u015fire = view-only, all write operations disabled
 
         BtnRegisterPatient.IsEnabled = isAdmin || isDoctor;
         BtnEditPatient.IsEnabled = isAdmin || isDoctor;
@@ -844,15 +840,18 @@ public partial class MainWindow : Window
 
         SetStatus(role switch
         {
-            0 => "\ud83d\udc51 Admin modu: T\u00fcm yetkiler aktif",
-            1 => "\ud83e\ude7a Doktor modu: Hasta ve randevu i\u015flemleri",
-            2 => "\ud83c\udfe5 Hem\u015fire modu: G\u00f6r\u00fcnt\u00fcleme yetkisi",
+            0 => "👑 Admin modu: Tüm yetkiler aktif",
+            1 => "🩺 Doktor modu: Hasta ve randevu işlemleri",
+            2 => "🏥 Hemşire modu: Görüntüleme yetkisi",
             _ => ""
         });
     }
 }
 
-// Bug fix: Strongly typed view models to prevent runtime exceptions with dynamic casting
+/// <summary>
+/// Strongly typed ViewModel for Doctor DataGrid.
+/// Prevents runtime exceptions from dynamic casting.
+/// </summary>
 public class DoctorViewModel
 {
     public int Id { get; set; }
@@ -861,4 +860,3 @@ public class DoctorViewModel
     public string DeptName { get; set; } = "";
     public string Phone { get; set; } = "";
 }
-
