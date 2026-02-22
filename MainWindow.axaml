@@ -1,0 +1,701 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="HospitalManagementWPF.MainWindow"
+        Title="🏥 Hastane Yönetim Sistemi"
+        Width="1200" Height="750"
+        MinWidth="900" MinHeight="600"
+        Background="{StaticResource PrimaryBgBrush}"
+        WindowStartupLocation="CenterScreen">
+
+    <Grid ColumnDefinitions="240,*">
+        <!-- Nav button style -->
+        <Grid.Styles>
+            <Style Selector="Button.nav">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+                <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                <Setter Property="Padding" Value="20,10"/>
+                <Setter Property="CornerRadius" Value="6"/>
+                <Setter Property="Margin" Value="8,1"/>
+            </Style>
+            <Style Selector="Button.nav:pointerover /template/ ContentPresenter">
+                <Setter Property="Background" Value="{StaticResource HoverBgBrush}"/>
+                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            </Style>
+            <Style Selector="Button.nav-active">
+                <Setter Property="Background" Value="{StaticResource HoverBgBrush}"/>
+                <Setter Property="Foreground" Value="{StaticResource AccentBlueBrush}"/>
+                <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                <Setter Property="Padding" Value="20,10"/>
+                <Setter Property="CornerRadius" Value="6"/>
+                <Setter Property="Margin" Value="8,1"/>
+            </Style>
+        </Grid.Styles>
+
+        <!-- ============================================ -->
+        <!-- LEFT SIDEBAR                                 -->
+        <!-- ============================================ -->
+        <Border Grid.Column="0" Background="{StaticResource SidebarBgBrush}"
+                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Top" Margin="16,20,16,24">
+                    <TextBlock Text="🏥" FontSize="28" HorizontalAlignment="Center" Margin="0,0,0,8" />
+                    <TextBlock Text="Hastane Yönetim" FontSize="16" FontWeight="Bold"
+                               Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center" />
+                    <TextBlock Text="Sistemi" FontSize="16" FontWeight="Bold"
+                               Foreground="{StaticResource AccentBlueBrush}" HorizontalAlignment="Center" />
+                    <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,16,0,0" />
+                </StackPanel>
+
+                <ScrollViewer>
+                    <StackPanel>
+                        <TextBlock Text="ANA İŞLEMLER" FontSize="10" FontWeight="Bold" Margin="20,8,0,6"
+                                   Foreground="{StaticResource TextSecondaryBrush}" />
+                        <Button Content="🏠  Dashboard" Tag="Dashboard" Click="Nav_Click" Classes="nav"/>
+                        <Button Content="👤  Hasta Yönetimi" Tag="Patients" Click="Nav_Click" Classes="nav"/>
+                        <Button Content="🩺  Doktor Yönetimi" Tag="Doctors" Click="Nav_Click" Classes="nav"/>
+                        <Button Content="📋  Randevu İşlemleri" Tag="Appointments" Click="Nav_Click" Classes="nav"/>
+                        <Button Content="🚨  Acil Servis" Tag="Emergency" Click="Nav_Click" Classes="nav"/>
+
+                        <Border Height="1" Background="{StaticResource BorderBrush}" Margin="16,12" />
+
+                        <TextBlock Text="ARAMA" FontSize="10" FontWeight="Bold" Margin="20,4,0,6"
+                                   Foreground="{StaticResource TextSecondaryBrush}" />
+                        <Button Content="🔍  Hasta Arama (Hızlı)" Tag="BST" Click="Nav_Click" Classes="nav"/>
+                        <Button Content="🔍  Hasta Arama (Gelişmiş)" Tag="AVL" Click="Nav_Click" Classes="nav"/>
+                        <Button Content="🏛️  Bölüm ve Yapı" Tag="Departments" Click="Nav_Click" Classes="nav"/>
+
+                        <Border Height="1" Background="{StaticResource BorderBrush}" Margin="16,12" />
+
+                        <TextBlock Text="SİSTEM" FontSize="10" FontWeight="Bold" Margin="20,4,0,6"
+                                   Foreground="{StaticResource TextSecondaryBrush}" />
+                        <Button Content="↩️  Geri Al (Undo)" Tag="Undo" Click="Nav_Click" Classes="nav"/>
+                        <Button Content="📊  İstatistikler" Tag="Stats" Click="Nav_Click" Classes="nav"/>
+
+                        <Border Height="1" Background="{StaticResource BorderBrush}" Margin="16,12" />
+                        <Button x:Name="BtnThemeToggle" Content="🌙  Koyu Tema" Click="ToggleTheme_Click" Classes="nav"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
+        <!-- ============================================ -->
+        <!-- RIGHT CONTENT AREA                           -->
+        <!-- ============================================ -->
+        <Grid Grid.Column="1" RowDefinitions="*,28">
+
+            <ScrollViewer Grid.Row="0" Padding="24,20">
+                <StackPanel>
+
+                    <!-- Delete Confirmation Panel (Global) -->
+                    <Border x:Name="PanelDeleteConfirm" Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20" Margin="0,0,0,16"
+                            BorderBrush="{StaticResource AccentRedBrush}" BorderThickness="2" IsVisible="False">
+                        <StackPanel Spacing="12">
+                            <TextBlock x:Name="TxtDeleteConfirmMsg" Text="⚠️ Bu kaydı silmek istediğinize emin misiniz?" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource AccentRedBrush}"/>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="✓ Evet, Sil" Click="ConfirmDelete_Click"
+                                        Background="{StaticResource AccentRedBrush}" Foreground="White" FontWeight="Bold" Padding="16,8" CornerRadius="6"/>
+                                <Button Content="✕ Hayır, İptal" Click="CancelDelete_Click"
+                                        Background="{StaticResource CardBgBrush}" Foreground="{StaticResource TextPrimaryBrush}" Padding="16,8" CornerRadius="6"
+                                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ===== DASHBOARD PANEL ===== -->
+                    <StackPanel x:Name="PanelDashboard" IsVisible="True">
+                        <TextBlock Text="🏠 Dashboard" FontSize="22" FontWeight="Bold"
+                                   Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,20" />
+                        <WrapPanel>
+                            <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20" Margin="0,0,12,12"
+                                    Width="200" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="Toplam Hasta" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+                                    <TextBlock x:Name="TxtDashPatients" Text="0" FontSize="36" FontWeight="Bold" Foreground="{StaticResource AccentBlueBrush}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20" Margin="0,0,12,12"
+                                    Width="200" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="Toplam Doktor" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+                                    <TextBlock x:Name="TxtDashDoctors" Text="0" FontSize="36" FontWeight="Bold" Foreground="{StaticResource AccentGreenBrush}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20" Margin="0,0,12,12"
+                                    Width="200" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="Bugünkü Randevu" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+                                    <TextBlock x:Name="TxtDashTodayApps" Text="0" FontSize="36" FontWeight="Bold" Foreground="{StaticResource AccentOrangeBrush}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20" Margin="0,0,12,12"
+                                    Width="200" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="Acil Serviste" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+                                    <TextBlock x:Name="TxtDashER" Text="0" FontSize="36" FontWeight="Bold" Foreground="{StaticResource AccentRedBrush}"/>
+                                </StackPanel>
+                            </Border>
+                        </WrapPanel>
+                        <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20" Margin="0,0,0,12"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="Bugünkü Randevular" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,10"/>
+                                <DataGrid x:Name="DgDashTodayApps" MaxHeight="250" IsReadOnly="True" AutoGenerateColumns="False"
+                                          GridLinesVisibility="Horizontal" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Saat" Binding="{Binding Time}" Width="80"/>
+                                        <DataGridTextColumn Header="Hasta" Binding="{Binding PatientName}" Width="*"/>
+                                        <DataGridTextColumn Header="Doktor" Binding="{Binding DoctorName}" Width="*"/>
+                                        <DataGridTextColumn Header="Durum" Binding="{Binding Status}" Width="90"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- ===== PATIENT PANEL ===== -->
+                    <StackPanel x:Name="PanelPatients" IsVisible="False">
+                        <TextBlock Text="👤 Hasta Yönetimi" FontSize="22" FontWeight="Bold"
+                                   Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,20" />
+
+                        <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20" Margin="0,0,0,16"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="Yeni Hasta Kayıt" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" />
+                                <Grid ColumnDefinitions="*,12,*" RowDefinitions="Auto,8,Auto,8,Auto">
+                                    <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4">
+                                        <TextBlock Text="Ad" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                        <TextBox x:Name="TxtPatientFirstName"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="0" Grid.Column="2" Spacing="4">
+                                        <TextBlock Text="Soyad" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                        <TextBox x:Name="TxtPatientLastName"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="2" Grid.Column="0" Spacing="4">
+                                        <TextBlock Text="TC Kimlik No (11 hane)" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                        <TextBox x:Name="TxtPatientNationalId" MaxLength="11"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="2" Grid.Column="2" Spacing="4">
+                                        <TextBlock Text="Telefon" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                        <TextBox x:Name="TxtPatientPhone"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="4" Grid.Column="0" Spacing="4">
+                                        <TextBlock Text="Doğum Tarihi" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                        <DatePicker x:Name="DpPatientBirthDate"/>
+                                    </StackPanel>
+                                    <Button x:Name="BtnRegisterPatient" Grid.Row="4" Grid.Column="2" Content="✓ Hasta Kaydet" Click="RegisterPatient_Click"
+                                            Background="{StaticResource AccentBlueBrush}" Foreground="White" FontWeight="Bold"
+                                            HorizontalAlignment="Stretch" VerticalAlignment="Bottom" Padding="16,10" CornerRadius="6"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20" Margin="0,0,0,16"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,0,0,10">
+                                    <TextBlock Text="Kayıtlı Hastalar" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                    <TextBox x:Name="TxtPatientSearch" Width="250" Watermark="🔍 Hasta ara (ad, soyad, TC)..." TextChanged="PatientSearch_Changed"/>
+                                    <Button Content="📋 Profil" Click="ShowProfile_Click" Background="{StaticResource AccentBlueBrush}" Foreground="White" Padding="12,6" CornerRadius="6"/>
+                                    <Button x:Name="BtnEditPatient" Content="✏️ Düzenle" Click="EditPatient_Click" Background="{StaticResource AccentOrangeBrush}" Foreground="White" Padding="12,6" CornerRadius="6"/>
+                                    <Button x:Name="BtnDeletePatient" Content="🗑️ Sil" Click="DeletePatient_Click" Background="{StaticResource AccentRedBrush}" Foreground="White" Padding="12,6" CornerRadius="6"/>
+                                </StackPanel>
+                                <TextBlock x:Name="TxtPatientValidation" FontSize="12" Foreground="{StaticResource AccentRedBrush}" Margin="0,0,0,4"/>
+                                <DataGrid x:Name="DgPatients" MaxHeight="300" IsReadOnly="True" AutoGenerateColumns="False"
+                                          GridLinesVisibility="Horizontal" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                          SelectionMode="Single" CanUserSortColumns="False">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="60"/>
+                                        <DataGridTextColumn Header="Ad" Binding="{Binding FirstName}" Width="*"/>
+                                        <DataGridTextColumn Header="Soyad" Binding="{Binding LastName}" Width="*"/>
+                                        <DataGridTextColumn Header="TC Kimlik" Binding="{Binding NationalId}" Width="120"/>
+                                        <DataGridTextColumn Header="Telefon" Binding="{Binding Phone}" Width="120"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </StackPanel>
+                        </Border>
+
+
+                        <!-- Patient Profile Detail -->
+                        <Border x:Name="PatientProfileCard" Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20" Margin="0,0,0,16"
+                                BorderBrush="{StaticResource AccentBlueBrush}" BorderThickness="2" IsVisible="False">
+                            <StackPanel Spacing="6">
+                                <StackPanel Orientation="Horizontal" Spacing="12">
+                                    <TextBlock Text="👤 Hasta Profili" FontSize="16" FontWeight="Bold" Foreground="{StaticResource AccentBlueBrush}" VerticalAlignment="Center"/>
+                                    <Button Content="✕ Kapat" Click="CloseProfile_Click" Background="Transparent" Foreground="{StaticResource TextSecondaryBrush}" Padding="8,4" CornerRadius="4"/>
+                                </StackPanel>
+                                <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,4"/>
+                                <TextBlock x:Name="TxtProfileName" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <TextBlock x:Name="TxtProfileDetails" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                                <TextBlock Text="Randevular:" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,6,0,2"/>
+                                <ListBox x:Name="LbProfileAppointments" MaxHeight="120" Background="{StaticResource SidebarBgBrush}" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <TextBlock Text="Tıbbi Geçmiş:" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,6,0,2"/>
+                                <ListBox x:Name="LbProfileHistory" MaxHeight="120" Background="{StaticResource SidebarBgBrush}" Foreground="{StaticResource TextPrimaryBrush}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="Tıbbi Geçmiş" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBox x:Name="TxtHistoryPatientId" Width="80" Watermark="Hasta ID"/>
+                                    <Button Content="Geçmişi Göster" Click="ShowHistory_Click"
+                                            Background="{StaticResource AccentBlueBrush}" Foreground="White" Padding="16,8" CornerRadius="6"/>
+                                </StackPanel>
+                                <ListBox x:Name="LbHistory" MaxHeight="200" Background="{StaticResource SidebarBgBrush}"
+                                         Foreground="{StaticResource TextPrimaryBrush}" BorderBrush="{StaticResource BorderBrush}"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- ===== DOCTOR PANEL ===== -->
+                    <StackPanel x:Name="PanelDoctors" IsVisible="False">
+                        <TextBlock Text="🩺 Doktor Yönetimi" FontSize="22" FontWeight="Bold"
+                                   Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,20" />
+
+                        <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20" Margin="0,0,0,16"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="Yeni Doktor Kayıt" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <Grid ColumnDefinitions="*,12,*" RowDefinitions="Auto,8,Auto,8,Auto">
+                                    <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4">
+                                        <TextBlock Text="Ad" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                        <TextBox x:Name="TxtDoctorFirstName"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="0" Grid.Column="2" Spacing="4">
+                                        <TextBlock Text="Soyad" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                        <TextBox x:Name="TxtDoctorLastName"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="2" Grid.Column="0" Spacing="4">
+                                        <TextBlock Text="Bölüm" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                        <ComboBox x:Name="CbDoctorDepartment" HorizontalAlignment="Stretch"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="2" Grid.Column="2" Spacing="4">
+                                        <TextBlock Text="Telefon" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                        <TextBox x:Name="TxtDoctorPhone"/>
+                                    </StackPanel>
+                                    <Button x:Name="BtnRegisterDoctor" Grid.Row="4" Grid.Column="2" Content="✓ Doktor Kaydet" Click="RegisterDoctor_Click"
+                                            Background="{StaticResource AccentBlueBrush}" Foreground="White" FontWeight="Bold"
+                                            HorizontalAlignment="Stretch" VerticalAlignment="Bottom" Padding="16,10" CornerRadius="6"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,0,0,10">
+                                    <TextBlock Text="Kayıtlı Doktorlar" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                    <TextBox x:Name="TxtDoctorSearch" Width="250" Watermark="🔍 Doktor ara..." TextChanged="DoctorSearch_Changed"/>
+                                    <Button x:Name="BtnDeleteDoctor" Content="🗑️ Sil" Click="DeleteDoctor_Click" Background="{StaticResource AccentRedBrush}" Foreground="White" Padding="12,6" CornerRadius="6"/>
+                                </StackPanel>
+                                <DataGrid x:Name="DgDoctors" MaxHeight="300" IsReadOnly="True" AutoGenerateColumns="False"
+                                          GridLinesVisibility="Horizontal" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                          SelectionMode="Single" CanUserSortColumns="False">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="60"/>
+                                        <DataGridTextColumn Header="Ad" Binding="{Binding FirstName}" Width="*"/>
+                                        <DataGridTextColumn Header="Soyad" Binding="{Binding LastName}" Width="*"/>
+                                        <DataGridTextColumn Header="Bölüm" Binding="{Binding DeptName}" Width="*"/>
+                                        <DataGridTextColumn Header="Telefon" Binding="{Binding Phone}" Width="120"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- ===== APPOINTMENT PANEL ===== -->
+                    <StackPanel x:Name="PanelAppointments" IsVisible="False">
+                        <TextBlock Text="📋 Randevu İşlemleri" FontSize="22" FontWeight="Bold"
+                                   Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,20" />
+
+                        <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20" Margin="0,0,0,16"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="Yeni Randevu" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <Grid ColumnDefinitions="*,12,*" RowDefinitions="Auto,8,Auto,8,Auto">
+                                    <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4">
+                                        <TextBlock Text="Hasta ID" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                        <TextBox x:Name="TxtAppPatientId"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="0" Grid.Column="2" Spacing="4">
+                                        <TextBlock Text="Doktor ID" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                        <TextBox x:Name="TxtAppDoctorId"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="2" Grid.Column="0" Spacing="4">
+                                        <TextBlock Text="Tarih" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                        <DatePicker x:Name="DpAppDate"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="2" Grid.Column="2" Spacing="4">
+                                        <TextBlock Text="Saat (ör: 14:30)" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                        <TextBox x:Name="TxtAppTime" Watermark="14:30"/>
+                                    </StackPanel>
+                                    <Button x:Name="BtnCreateAppointment" Grid.Row="4" Grid.Column="2" Content="✓ Randevu Oluştur" Click="CreateAppointment_Click"
+                                            Background="{StaticResource AccentBlueBrush}" Foreground="White" FontWeight="Bold"
+                                            HorizontalAlignment="Stretch" VerticalAlignment="Bottom" Padding="16,10" CornerRadius="6"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20" Margin="0,0,0,16"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="Tüm Randevular" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,10"/>
+                                <DataGrid x:Name="DgAppointments" MaxHeight="250" IsReadOnly="True" AutoGenerateColumns="False"
+                                          GridLinesVisibility="Horizontal" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="50"/>
+                                        <DataGridTextColumn Header="Hasta" Binding="{Binding PatientName}" Width="*"/>
+                                        <DataGridTextColumn Header="Doktor" Binding="{Binding DoctorName}" Width="*"/>
+                                        <DataGridTextColumn Header="Tarih" Binding="{Binding DateTime}" Width="130"/>
+                                        <DataGridTextColumn Header="Durum" Binding="{Binding Status}" Width="90"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20" Margin="0,0,0,16"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="Doktor Kuyruğu ve Muayene" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBox x:Name="TxtQueueDoctorId" Width="80" Watermark="Doktor ID"/>
+                                    <Button Content="Kuyruğu Göster" Click="ShowDoctorQueue_Click"
+                                            Background="{StaticResource AccentBlueBrush}" Foreground="White" Padding="16,8" CornerRadius="6"/>
+                                    <Button x:Name="BtnExaminePatient" Content="Muayene Et" Click="ExaminePatient_Click"
+                                            Background="{StaticResource AccentGreenBrush}" Foreground="White" Padding="16,8" CornerRadius="6"/>
+                                </StackPanel>
+                                <ListBox x:Name="LbDoctorQueue" MaxHeight="200" Background="{StaticResource SidebarBgBrush}"
+                                         Foreground="{StaticResource TextPrimaryBrush}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Doctor Availability -->
+                        <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="Doktor Müsaitlik Durumu" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBox x:Name="TxtAvailDoctorId" Width="80" Watermark="Doktor ID"/>
+                                    <DatePicker x:Name="DpAvailDate"/>
+                                    <Button Content="Müsaitliği Göster" Click="ShowAvailability_Click"
+                                            Background="{StaticResource AccentBlueBrush}" Foreground="White" Padding="16,8" CornerRadius="6"/>
+                                </StackPanel>
+                                <ItemsControl x:Name="IcAvailability">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{Binding BgColor}" CornerRadius="4" Padding="12,6" Margin="0,2">
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <TextBlock Text="{Binding Icon}" FontSize="14" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding TimeSlot}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding StatusText}" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- ===== EMERGENCY PANEL ===== -->
+                    <StackPanel x:Name="PanelEmergency" IsVisible="False">
+                        <TextBlock Text="🚨 Acil Servis" FontSize="22" FontWeight="Bold"
+                                   Foreground="{StaticResource AccentRedBrush}" Margin="0,0,0,20" />
+
+                        <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20" Margin="0,0,0,16"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="Acil Hasta Kabul" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <Grid ColumnDefinitions="*,12,*" RowDefinitions="Auto,8,Auto,8,Auto">
+                                    <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4">
+                                        <TextBlock Text="Hasta ID" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                        <TextBox x:Name="TxtERPatientId"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="0" Grid.Column="2">
+                                        <TextBlock Text="Önem Derecesi (1-10)" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
+                                        <Slider x:Name="SliderSeverity" Minimum="1" Maximum="10" Value="5"
+                                                IsSnapToTickEnabled="True" TickFrequency="1"/>
+                                        <TextBlock x:Name="TxtSeverityValue" Text="5" FontSize="20" FontWeight="Bold"
+                                                   Foreground="{StaticResource AccentOrangeBrush}" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Spacing="4">
+                                        <TextBlock Text="Şikayet / Semptomlar" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                        <TextBox x:Name="TxtERComplaint"/>
+                                    </StackPanel>
+                                    <Button x:Name="BtnAddER" Grid.Row="4" Grid.Column="2" Content="🚨 Acile Kabul Et" Click="AddERPatient_Click"
+                                            Background="{StaticResource AccentRedBrush}" Foreground="White" FontWeight="Bold"
+                                            HorizontalAlignment="Stretch" VerticalAlignment="Bottom" Padding="16,10" CornerRadius="6"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                            <StackPanel Spacing="8">
+                                <StackPanel Orientation="Horizontal" Spacing="12">
+                                    <TextBlock Text="Acil Kuyruk (Öncelik Sırası)" FontSize="15" FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                    <Button x:Name="BtnTreatHighest" Content="En Acil Hastayı Tedavi Et" Click="TreatHighest_Click"
+                                            Background="{StaticResource AccentRedBrush}" Foreground="White" Padding="16,8" CornerRadius="6"/>
+                                </StackPanel>
+                                <ItemsControl x:Name="IcERQueue">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{Binding BgColor}" CornerRadius="6" Padding="12,8" Margin="0,3"
+                                                    BorderBrush="{Binding BorderColor}" BorderThickness="1">
+                                                <Grid ColumnDefinitions="40,*,60,*,80">
+                                                    <TextBlock Grid.Column="0" Text="{Binding RankStr}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding PatientName}" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="2" Text="{Binding SeverityBadge}" FontSize="14" FontWeight="Bold" Foreground="{Binding SeverityColor}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="3" Text="{Binding Complaint}" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Grid.Column="4" Text="{Binding ArrivalTime}" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- ===== HASTA ARAMA (HIZLI) PANEL ===== -->
+                    <StackPanel x:Name="PanelBST" IsVisible="False">
+                        <TextBlock Text="🔍 Hasta Arama (Hızlı)" FontSize="22" FontWeight="Bold"
+                                   Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,20" />
+
+                        <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20" Margin="0,0,0,16"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="İsme Göre Hasta Ara" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBox x:Name="TxtBSTFirstName" Width="160" Watermark="Ad"/>
+                                    <TextBox x:Name="TxtBSTLastName" Width="160" Watermark="Soyad"/>
+                                    <Button Content="Ara" Click="SearchBST_Click"
+                                            Background="{StaticResource AccentBlueBrush}" Foreground="White" Padding="16,8" CornerRadius="6"/>
+                                </StackPanel>
+                                <TextBlock x:Name="TxtBSTResult" Foreground="{StaticResource AccentGreenBrush}" FontSize="13"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                            <StackPanel Spacing="8">
+                                <StackPanel Orientation="Horizontal" Spacing="12">
+                                    <TextBlock Text="Tüm Hastaları Alfabetik Listele" FontSize="15" FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                    <Button Content="Listele" Click="ListBST_Click"
+                                            Background="{StaticResource AccentBlueBrush}" Foreground="White" Padding="16,8" CornerRadius="6"/>
+                                </StackPanel>
+                                <ListBox x:Name="LbBST" MaxHeight="300" Background="{StaticResource SidebarBgBrush}"
+                                         Foreground="{StaticResource TextPrimaryBrush}"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- ===== HASTA ARAMA (GELİŞMİŞ) PANEL ===== -->
+                    <StackPanel x:Name="PanelAVL" IsVisible="False">
+                        <TextBlock Text="🔍 Hasta Arama (Gelişmiş)" FontSize="22" FontWeight="Bold"
+                                   Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,20" />
+
+                        <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20" Margin="0,0,0,16"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="İsme Göre Dengeli Hasta Ara" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBox x:Name="TxtAVLFirstName" Width="160" Watermark="Ad"/>
+                                    <TextBox x:Name="TxtAVLLastName" Width="160" Watermark="Soyad"/>
+                                    <Button Content="Ara" Click="SearchAVL_Click"
+                                            Background="{StaticResource AccentBlueBrush}" Foreground="White" Padding="16,8" CornerRadius="6"/>
+                                </StackPanel>
+                                <TextBlock x:Name="TxtAVLResult" Foreground="{StaticResource AccentGreenBrush}" FontSize="13"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                            <StackPanel Spacing="8">
+                                <StackPanel Orientation="Horizontal" Spacing="12">
+                                    <TextBlock Text="Tüm Hastaları Alfabetik Listele" FontSize="15" FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                    <Button Content="Listele" Click="ListAVL_Click"
+                                            Background="{StaticResource AccentBlueBrush}" Foreground="White" Padding="16,8" CornerRadius="6"/>
+                                </StackPanel>
+                                <ListBox x:Name="LbAVL" MaxHeight="300" Background="{StaticResource SidebarBgBrush}"
+                                         Foreground="{StaticResource TextPrimaryBrush}"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- ===== DEPARTMENTS PANEL ===== -->
+                    <StackPanel x:Name="PanelDepartments" IsVisible="False">
+                        <TextBlock Text="🏛️ Bölüm ve Organizasyon Yapısı" FontSize="22" FontWeight="Bold"
+                                   Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,20" />
+
+                        <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20" Margin="0,0,0,16"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="Yeni Bölüm Oluştur" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBox x:Name="TxtDeptName" Width="200" Watermark="Bölüm Adı"/>
+                                    <TextBox x:Name="TxtDeptCapacity" Width="100" Watermark="Kapasite"/>
+                                    <Button x:Name="BtnCreateDept" Content="Oluştur" Click="CreateDepartment_Click"
+                                            Background="{StaticResource AccentBlueBrush}" Foreground="White" Padding="16,8" CornerRadius="6"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20" Margin="0,0,0,16"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="Tüm Bölümler" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,10"/>
+                                <DataGrid x:Name="DgDepartments" MaxHeight="200" IsReadOnly="True" AutoGenerateColumns="False"
+                                          GridLinesVisibility="Horizontal" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="60"/>
+                                        <DataGridTextColumn Header="Bölüm Adı" Binding="{Binding Name}" Width="*"/>
+                                        <DataGridTextColumn Header="Doktor" Binding="{Binding DoctorCount}" Width="80"/>
+                                        <DataGridTextColumn Header="Kapasite" Binding="{Binding Capacity}" Width="80"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                            <StackPanel Spacing="8">
+                                <StackPanel Orientation="Horizontal" Spacing="12">
+                                    <TextBlock Text="Hastane Yapısı (Tree)" FontSize="15" FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                    <Button Content="Yapıyı Göster" Click="ShowHierarchy_Click"
+                                            Background="{StaticResource AccentBlueBrush}" Foreground="White" Padding="16,8" CornerRadius="6"/>
+                                </StackPanel>
+                                <TreeView x:Name="TvHierarchy" MaxHeight="300"
+                                          Background="{StaticResource SidebarBgBrush}" Foreground="{StaticResource TextPrimaryBrush}"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- ===== UNDO PANEL ===== -->
+                    <StackPanel x:Name="PanelUndo" IsVisible="False">
+                        <TextBlock Text="↩️ Geri Al (Undo Stack)" FontSize="22" FontWeight="Bold"
+                                   Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,20" />
+
+                        <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                            <StackPanel Spacing="12">
+                                <StackPanel Orientation="Horizontal" Spacing="16">
+                                    <Button x:Name="BtnUndo" Content="↩️ Son İşlemi Geri Al" Click="Undo_Click"
+                                            Background="{StaticResource AccentRedBrush}" Foreground="White" FontSize="15"
+                                            FontWeight="Bold" Padding="24,12" CornerRadius="6"/>
+                                    <TextBlock x:Name="TxtUndoPeek" Foreground="{StaticResource TextSecondaryBrush}"
+                                               VerticalAlignment="Center" FontSize="13"/>
+                                </StackPanel>
+                                <TextBlock x:Name="TxtUndoResult" Foreground="{StaticResource AccentGreenBrush}" FontSize="14" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- ===== STATS PANEL ===== -->
+                    <StackPanel x:Name="PanelStats" IsVisible="False">
+                        <TextBlock Text="📊 İstatistikler" FontSize="22" FontWeight="Bold"
+                                   Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,20" />
+
+                        <WrapPanel>
+                            <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20" Margin="0,0,12,12"
+                                    Width="200" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="Toplam Hasta" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+                                    <TextBlock x:Name="TxtStatPatients" Text="0" FontSize="32" FontWeight="Bold"
+                                               Foreground="{StaticResource AccentBlueBrush}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20" Margin="0,0,12,12"
+                                    Width="200" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="Toplam Doktor" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+                                    <TextBlock x:Name="TxtStatDoctors" Text="0" FontSize="32" FontWeight="Bold"
+                                               Foreground="{StaticResource AccentGreenBrush}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20" Margin="0,0,12,12"
+                                    Width="200" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="Toplam Randevu" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+                                    <TextBlock x:Name="TxtStatAppointments" Text="0" FontSize="32" FontWeight="Bold"
+                                               Foreground="{StaticResource AccentOrangeBrush}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20" Margin="0,0,12,12"
+                                    Width="200" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="Acil Servisteki" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+                                    <TextBlock x:Name="TxtStatER" Text="0" FontSize="32" FontWeight="Bold"
+                                               Foreground="{StaticResource AccentRedBrush}"/>
+                                </StackPanel>
+                            </Border>
+                        </WrapPanel>
+
+                        <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20" Margin="0,4,0,12"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="Hasta Arama Performansı" FontSize="15" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,8"/>
+                                <TextBlock x:Name="TxtAVLStats" Foreground="{StaticResource TextPrimaryBrush}" FontSize="13"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="Bellek Kullanımı" FontSize="15" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,8"/>
+                                <TextBlock x:Name="TxtHashStats" Foreground="{StaticResource TextPrimaryBrush}" FontSize="13"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Report Export -->
+                        <Border Background="{StaticResource CardBgBrush}" CornerRadius="8" Padding="20" Margin="0,12,0,0"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="📄 Rapor Çıktısı" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Button Content="📄 Hasta Raporu (HTML)" Click="ExportPatientReport_Click"
+                                            Background="{StaticResource AccentBlueBrush}" Foreground="White" Padding="16,8" CornerRadius="6"/>
+                                    <Button Content="📄 Randevu Raporu (HTML)" Click="ExportAppointmentReport_Click"
+                                            Background="{StaticResource AccentGreenBrush}" Foreground="White" Padding="16,8" CornerRadius="6"/>
+                                </StackPanel>
+                                <TextBlock x:Name="TxtReportStatus" FontSize="12" Foreground="{StaticResource AccentGreenBrush}"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Status Bar -->
+            <Border Grid.Row="1" Background="{StaticResource SidebarBgBrush}"
+                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0">
+                <Grid ColumnDefinitions="*,Auto,Auto">
+                    <TextBlock x:Name="TxtStatusBar" Text="✓ Sistem hazır. | Student ID: 230316064 | Randevu süresi: 19 dk"
+                               Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"
+                               VerticalAlignment="Center" Margin="16,0,0,0"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="0,0,8,0">
+                        <TextBlock x:Name="TxtNotifBadge" Text="🔔 0" FontSize="12" Foreground="{StaticResource AccentOrangeBrush}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="0,0,12,0">
+                        <TextBlock Text="Rol:" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                        <ComboBox x:Name="CbRole" SelectedIndex="0" Width="110" FontSize="11" SelectionChanged="RoleChanged">
+                            <ComboBoxItem Content="Admin"/>
+                            <ComboBoxItem Content="Doktor"/>
+                            <ComboBoxItem Content="Hemşire"/>
+                        </ComboBox>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

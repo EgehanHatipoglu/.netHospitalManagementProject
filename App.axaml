@@ -1,0 +1,35 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="HospitalManagementWPF.App"
+             RequestedThemeVariant="Dark">
+    <Application.Styles>
+        <FluentTheme />
+        <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+    </Application.Styles>
+    <Application.Resources>
+        <Color x:Key="PrimaryBg">#0D1117</Color>
+        <Color x:Key="SidebarBg">#161B22</Color>
+        <Color x:Key="CardBg">#21262D</Color>
+        <Color x:Key="AccentBlue">#58A6FF</Color>
+        <Color x:Key="AccentGreen">#3FB950</Color>
+        <Color x:Key="AccentRed">#F85149</Color>
+        <Color x:Key="AccentOrange">#D29922</Color>
+        <Color x:Key="AccentPurple">#BC8CFF</Color>
+        <Color x:Key="TextPrimary">#E6EDF3</Color>
+        <Color x:Key="TextSecondary">#8B949E</Color>
+        <Color x:Key="BorderClr">#30363D</Color>
+        <Color x:Key="HoverBg">#1C2128</Color>
+
+        <SolidColorBrush x:Key="PrimaryBgBrush" Color="{StaticResource PrimaryBg}" />
+        <SolidColorBrush x:Key="SidebarBgBrush" Color="{StaticResource SidebarBg}" />
+        <SolidColorBrush x:Key="CardBgBrush" Color="{StaticResource CardBg}" />
+        <SolidColorBrush x:Key="AccentBlueBrush" Color="{StaticResource AccentBlue}" />
+        <SolidColorBrush x:Key="AccentGreenBrush" Color="{StaticResource AccentGreen}" />
+        <SolidColorBrush x:Key="AccentRedBrush" Color="{StaticResource AccentRed}" />
+        <SolidColorBrush x:Key="AccentOrangeBrush" Color="{StaticResource AccentOrange}" />
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimary}" />
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondary}" />
+        <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource BorderClr}" />
+        <SolidColorBrush x:Key="HoverBgBrush" Color="{StaticResource HoverBg}" />
+    </Application.Resources>
+</Application>
