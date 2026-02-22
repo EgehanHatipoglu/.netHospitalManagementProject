@@ -80,6 +80,18 @@ public partial class MainWindow : Window
         if (sender is Button btn && btn.Tag is string tag)
         {
             foreach (var p in _allPanels) p.IsVisible = false;
+
+            // Bug fix: Reset edit mode when switching panels
+            if (_editingPatientId.HasValue)
+            {
+                _editingPatientId = null;
+                BtnRegisterPatient.Content = "✓ Hasta Kaydet";
+                TxtPatientFirstName.Text = "";
+                TxtPatientLastName.Text = "";
+                TxtPatientNationalId.Text = "";
+                TxtPatientPhone.Text = "";
+            }
+
             switch (tag)
             {
                 case "Dashboard": PanelDashboard.IsVisible = true; RefreshDashboard(); break;
@@ -394,6 +406,27 @@ public partial class MainWindow : Window
             if (node.Data is ERPriorityQueue.ERPatient erp)
             { _erQueue.RemovePatientById(erp.Patient.Id); TxtUndoResult.Text = "✓ Acil servis hastası silindi."; }
         }
+        else if (parts[0] == "PATIENT_DELETE") // Bug fix: Handle undo for patient deletion
+        {
+            if (node.Data is Patient restored)
+            {
+                _patients.Put(restored.Id, restored);
+                _patientBST.Insert(restored);
+                _patientAVL.Insert(restored);
+                _db.SavePatient(restored);
+                TxtUndoResult.Text = "✓ Hasta geri getirildi.";
+            }
+        }
+        else if (parts[0] == "DOCTOR_DELETE") // Bug fix: Handle undo for doctor deletion
+        {
+            if (node.Data is Doctor restored)
+            {
+                _doctors.Put(restored.Id, restored);
+                restored.Department?.AddDoctor(restored);
+                _db.SaveDoctor(restored);
+                TxtUndoResult.Text = "✓ Doktor geri getirildi.";
+            }
+        }
 
         TxtUndoResult.Foreground = new SolidColorBrush(Color.Parse("#3FB950"));
         UpdateUndoPeek(); RefreshAllViews();
@@ -416,8 +449,8 @@ public partial class MainWindow : Window
 
     private void RefreshDoctorList()
     {
-        DgDoctors.ItemsSource = _doctors.Values().OrderBy(d => d.Id).Select(d => new
-        { d.Id, d.FirstName, d.LastName, DeptName = d.Department?.Name ?? "N/A", d.Phone }).ToList();
+        DgDoctors.ItemsSource = _doctors.Values().OrderBy(d => d.Id).Select(d => new DoctorViewModel
+        { Id = d.Id, FirstName = d.FirstName, LastName = d.LastName, DeptName = d.Department?.Name ?? "N/A", Phone = d.Phone }).ToList();
     }
 
     private void RefreshAppointmentList()
@@ -471,8 +504,8 @@ public partial class MainWindow : Window
     private void ShowProfile_Click(object? sender, RoutedEventArgs e)
     {
         if (DgPatients.SelectedItem == null) { ShowMsg("Profil i\u00e7in bir hasta se\u00e7in!"); return; }
-        dynamic sel = DgPatients.SelectedItem;
-        int id = (int)sel.Id;
+        if (DgPatients.SelectedItem is not Patient sel) return;
+        int id = sel.Id;
         var p = _patients.Get(id);
         if (p == null) return;
 
@@ -566,15 +599,15 @@ public partial class MainWindow : Window
             .Where(d => d.FirstName.ToLowerInvariant().Contains(q) ||
                         d.LastName.ToLowerInvariant().Contains(q) ||
                         (d.Department?.Name ?? "").ToLowerInvariant().Contains(q))
-            .Select(d => new { d.Id, d.FirstName, d.LastName, DeptName = d.Department?.Name ?? "N/A", d.Phone }).ToList();
+            .Select(d => new DoctorViewModel { Id = d.Id, FirstName = d.FirstName, LastName = d.LastName, DeptName = d.Department?.Name ?? "N/A", Phone = d.Phone }).ToList();
     }
 
     // ============ DELETE / EDIT ============
     private void DeletePatient_Click(object? sender, RoutedEventArgs e)
     {
         if (DgPatients.SelectedItem == null) { ShowMsg("Silmek i\u00e7in bir hasta se\u00e7in!"); return; }
-        dynamic sel = DgPatients.SelectedItem;
-        int id = (int)sel.Id;
+        if (DgPatients.SelectedItem is not Patient sel) return;
+        int id = sel.Id;
         var p = _patients.Get(id);
         if (p == null) return;
 
@@ -582,6 +615,8 @@ public partial class MainWindow : Window
         TxtDeleteConfirmMsg.Text = $"\u26a0\ufe0f '{p.FullName}' (ID: {id}) hastas\u0131n\u0131 silmek istedi\u011finize emin misiniz?";
         _pendingDeleteAction = () =>
         {
+            _undoStack.Push("PATIENT_DELETE:" + id, p); // Bug fix: Add deletion to undo stack
+
             foreach (int appId in _appointments.Values().Where(a => a.Patient.Id == id).Select(a => a.Id).ToList())
             { _appointments.Remove(appId); _db.DeleteAppointment(appId); }
 
@@ -597,8 +632,8 @@ public partial class MainWindow : Window
     private void EditPatient_Click(object? sender, RoutedEventArgs e)
     {
         if (DgPatients.SelectedItem == null) { ShowMsg("D\u00fczenlemek i\u00e7in bir hasta se\u00e7in!"); return; }
-        dynamic sel = DgPatients.SelectedItem;
-        int id = (int)sel.Id;
+        if (DgPatients.SelectedItem is not Patient sel) return;
+        int id = sel.Id;
         var p = _patients.Get(id);
         if (p == null) return;
 
@@ -617,8 +652,8 @@ public partial class MainWindow : Window
     private void DeleteDoctor_Click(object? sender, RoutedEventArgs e)
     {
         if (DgDoctors.SelectedItem == null) { ShowMsg("Silmek i\u00e7in bir doktor se\u00e7in!"); return; }
-        dynamic sel = DgDoctors.SelectedItem;
-        int id = (int)sel.Id;
+        if (DgDoctors.SelectedItem is not DoctorViewModel sel) return;
+        int id = sel.Id;
         var d = _doctors.Get(id);
         if (d == null) return;
 
@@ -626,6 +661,15 @@ public partial class MainWindow : Window
         TxtDeleteConfirmMsg.Text = $"\u26a0\ufe0f '{d.FullName}' (ID: {id}) doktoru silmek istedi\u011finize emin misiniz?";
         _pendingDeleteAction = () =>
         {
+            _undoStack.Push("DOCTOR_DELETE:" + id, d); // Bug fix: Add deletion to undo stack
+
+            // Bug fix: Remove all appointments associated with this doctor first
+            foreach (int appId in _appointments.Values().Where(a => a.Doctor.Id == id).Select(a => a.Id).ToList())
+            {
+                _appointments.Remove(appId);
+                _db.DeleteAppointment(appId);
+            }
+
             d.Department?.Doctors.Remove(d);
             _doctors.Remove(id); _db.DeleteDoctor(id);
             RefreshDoctorList(); RefreshDepartmentList();
@@ -697,7 +741,8 @@ public partial class MainWindow : Window
         foreach (var (id, pid, did, start, end, status) in _db.LoadAppointments())
         { var p = _patients.Get(pid); var d = _doctors.Get(did);
           if (p != null && d != null) { var app = new Appointment(id, p, d, DateTime.Parse(start));
-            app.Status = status; _appointments.Put(id, app); d.DailyQueue.Enqueue(app);
+            app.Status = status; _appointments.Put(id, app); 
+            if (status != "Completed") d.DailyQueue.Enqueue(app); // Bug fix: Only enqueue non-completed apps
             if (id > _appointmentIdCounter) _appointmentIdCounter = id; } }
     }
 
@@ -806,3 +851,14 @@ public partial class MainWindow : Window
         });
     }
 }
+
+// Bug fix: Strongly typed view models to prevent runtime exceptions with dynamic casting
+public class DoctorViewModel
+{
+    public int Id { get; set; }
+    public string FirstName { get; set; } = "";
+    public string LastName { get; set; } = "";
+    public string DeptName { get; set; } = "";
+    public string Phone { get; set; } = "";
+}
+
