@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Media;
 using HospitalManagementWPF.Data;
 using HospitalManagementWPF.DataStructures;
@@ -34,8 +36,14 @@ public partial class MainWindow : Window
     private StackPanel[] _allPanels = null!;
     private List<Department> _departmentList = new();
 
+    // Fix 4: Safe in-place edit tracking
     private int? _editingPatientId = null;
+
+    // Fix 5: Delete confirmation
     private Action? _pendingDeleteAction = null;
+
+    // Feature 4: Calendar week state
+    private DateTime _currentWeekStart;
 
     public MainWindow()
     {
@@ -69,6 +77,10 @@ public partial class MainWindow : Window
         LoadFromDatabase();
         RefreshAllViews();
         RefreshDashboard();
+
+        // Initialize calendar to current week (Monday)
+        int dow = (int)DateTime.Today.DayOfWeek;
+        _currentWeekStart = DateTime.Today.AddDays(dow == 0 ? -6 : 1 - dow);
     }
 
     // ============ NAVIGATION ============
@@ -77,18 +89,6 @@ public partial class MainWindow : Window
         if (sender is Button btn && btn.Tag is string tag)
         {
             foreach (var p in _allPanels) p.IsVisible = false;
-
-            // Reset edit mode when switching panels
-            if (_editingPatientId.HasValue)
-            {
-                _editingPatientId = null;
-                BtnRegisterPatient.Content = "✓ Hasta Kaydet";
-                TxtPatientFirstName.Text = "";
-                TxtPatientLastName.Text = "";
-                TxtPatientNationalId.Text = "";
-                TxtPatientPhone.Text = "";
-            }
-
             switch (tag)
             {
                 case "Dashboard": PanelDashboard.IsVisible = true; RefreshDashboard(); break;
@@ -121,6 +121,7 @@ public partial class MainWindow : Window
 
             DateTime bd = DpPatientBirthDate.SelectedDate?.DateTime ?? DateTime.Today;
 
+            // Fix 4: In-place update mode
             if (_editingPatientId.HasValue)
             {
                 int editId = _editingPatientId.Value;
@@ -153,7 +154,7 @@ public partial class MainWindow : Window
                 int id = 1;
                 while (_patients.Get(id) != null) id++;
                 if (id > _patientIdCounter) _patientIdCounter = id;
-
+                
                 var p = new Patient(id, fn, ln, nid, phone, bd);
                 _patients.Put(id, p); _patientBST.Insert(p); _patientAVL.Insert(p);
                 _undoStack.Push("PATIENT_ADD:" + id); _db.SavePatient(p);
@@ -197,7 +198,7 @@ public partial class MainWindow : Window
             int id = 1;
             while (_doctors.Get(id) != null) id++;
             if (id > _doctorIdCounter) _doctorIdCounter = id;
-
+            
             var d = new Doctor(id, fn, ln, dept, phone);
 
             if (dept.AddDoctor(d))
@@ -265,7 +266,7 @@ public partial class MainWindow : Window
             app.Patient.AddVisit(DateTime.Now, d, "Muayene tamamlandı");
             app.Status = "Completed";
             _db.SaveVisit(app.Patient.Id, d.Id, DateTime.Now, "Muayene tamamlandı");
-            _db.SaveAppointment(app);
+            _db.SaveAppointment(app); // Fix 3: Persist status change to DB
             ShowDoctorQueue_Click(sender, e); RefreshAppointmentList();
             SetStatus($"✓ Muayene: {app.Patient.FullName}");
         }
@@ -388,12 +389,8 @@ public partial class MainWindow : Window
         {
             int id = int.Parse(parts[1]);
             var d = _doctors.Get(id);
-            if (d != null)
-            {
-                d.Department?.Doctors.Remove(d); _doctors.Remove(id); _db.DeleteDoctor(id);
-                if (id == _doctorIdCounter) _doctorIdCounter--;
-                TxtUndoResult.Text = "✓ Doktor silindi.";
-            }
+            if (d != null) { d.Department?.Doctors.Remove(d); _doctors.Remove(id); _db.DeleteDoctor(id);
+                if (id == _doctorIdCounter) _doctorIdCounter--; TxtUndoResult.Text = "✓ Doktor silindi."; }
         }
         else if (parts[0] == "APPOINTMENT_ADD")
         {
@@ -405,30 +402,6 @@ public partial class MainWindow : Window
         {
             if (node.Data is ERPriorityQueue.ERPatient erp)
             { _erQueue.RemovePatientById(erp.Patient.Id); TxtUndoResult.Text = "✓ Acil servis hastası silindi."; }
-        }
-        else if (parts[0] == "PATIENT_DELETE")
-        {
-            if (node.Data is Patient restored)
-            {
-                _patients.Put(restored.Id, restored);
-                _patientBST.Insert(restored);
-                _patientAVL.Insert(restored);
-                _db.SavePatient(restored);
-                TxtUndoResult.Text = "✓ Hasta geri getirildi.";
-            }
-        }
-        else if (parts[0] == "DOCTOR_DELETE")
-        {
-            if (node.Data is Doctor restored)
-            {
-                _doctors.Put(restored.Id, restored);
-                // FIX: Kapasite doluysa uyarı ver, sessizce başarısız olma
-                bool added = restored.Department?.AddDoctor(restored) ?? true;
-                _db.SaveDoctor(restored);
-                TxtUndoResult.Text = added
-                    ? "✓ Doktor geri getirildi."
-                    : "⚠ Doktor kaydı geri geldi fakat bölüm kapasitesi dolu!";
-            }
         }
 
         TxtUndoResult.Foreground = new SolidColorBrush(Color.Parse("#3FB950"));
@@ -452,8 +425,8 @@ public partial class MainWindow : Window
 
     private void RefreshDoctorList()
     {
-        DgDoctors.ItemsSource = _doctors.Values().OrderBy(d => d.Id).Select(d => new DoctorViewModel
-        { Id = d.Id, FirstName = d.FirstName, LastName = d.LastName, DeptName = d.Department?.Name ?? "N/A", Phone = d.Phone }).ToList();
+        DgDoctors.ItemsSource = _doctors.Values().OrderBy(d => d.Id).Select(d => new
+        { d.Id, d.FirstName, d.LastName, DeptName = d.Department?.Name ?? "N/A", d.Phone }).ToList();
     }
 
     private void RefreshAppointmentList()
@@ -507,8 +480,8 @@ public partial class MainWindow : Window
     private void ShowProfile_Click(object? sender, RoutedEventArgs e)
     {
         if (DgPatients.SelectedItem == null) { ShowMsg("Profil için bir hasta seçin!"); return; }
-        if (DgPatients.SelectedItem is not Patient sel) return;
-        int id = sel.Id;
+        if (DgPatients.SelectedItem is not Patient pSel) { ShowMsg("Profil için bir hasta seçin!"); return; }
+        int id = pSel.Id;
         var p = _patients.Get(id);
         if (p == null) return;
 
@@ -516,9 +489,20 @@ public partial class MainWindow : Window
         TxtProfileDetails.Text = $"TC: {p.NationalId} | Telefon: {p.Phone} | Doğum: {p.BirthDate:dd/MM/yyyy}";
 
         var apps = _appointments.Values().Where(a => a.Patient.Id == id)
-            .Select(a => $"{a.Start:dd/MM HH:mm} — Dr. {a.Doctor.FullName} [{a.Status}]").ToList();
+            .OrderByDescending(a => a.Start)
+            .Select(a => $"{a.Start:dd/MM HH:mm} — {a.Doctor.FullName} [{a.Status}]").ToList();
         LbProfileAppointments.ItemsSource = apps.Count > 0 ? apps : new[] { "Randevu yok." };
-        LbProfileHistory.ItemsSource = p.GetHistory().Count > 0 ? p.GetHistory() : new List<string> { "Geçmiş yok." };
+
+        LbProfileHistory.ItemsSource = p.GetHistory().Count > 0
+            ? p.GetHistory()
+            : new List<string> { "Geçmiş yok." };
+
+        // ★ Feature 5: ER visits
+        var erVisits = _erQueue.GetAllSorted()
+            .Where(erp => erp.Patient.Id == id)
+            .Select(erp => $"🚨 {erp.ArrivalTime:dd/MM HH:mm} — {erp.Complaint} (Şiddet: {erp.Severity}/10)")
+            .ToList();
+        LbProfileER.ItemsSource = erVisits.Count > 0 ? erVisits : new[] { "Acil servis ziyareti yok." };
 
         PatientProfileCard.IsVisible = true;
     }
@@ -537,20 +521,240 @@ public partial class MainWindow : Window
         var docApps = _appointments.Values()
             .Where(a => a.Doctor.Id == did && a.Start.Date == day).OrderBy(a => a.Start).ToList();
 
+        const double maxBarWidth = 180.0; // px, fits the Grid column
+
         for (int h = 9; h < 18; h++)
         {
             var slotStart = day.AddHours(h);
             var slotEnd = slotStart.AddHours(1);
             var conflict = docApps.FirstOrDefault(a => a.Start < slotEnd && a.End > slotStart);
+
+            bool isSoon = slotStart > DateTime.Now && slotStart < DateTime.Now.AddMinutes(30);
+
             if (conflict != null)
-                slots.Add(new { Icon = "🔴", TimeSlot = $"{h:00}:00-{h+1:00}:00",
-                    StatusText = $"Dolu — {conflict.Patient.FullName}", BgColor = "#2D1518" });
+            {
+                // Fill bar proportional to appointment duration within the slot
+                double fillRatio = Math.Min(1.0, (double)Appointment.AppointmentDuration / 60.0);
+                slots.Add(new
+                {
+                    Icon = "🔴",
+                    TimeSlot = $"{h:00}:00-{h+1:00}:00",
+                    StatusText = $"Dolu — {conflict.Patient.FullName}",
+                    BgColor = "#2D1518", BorderColor = "#F85149",
+                    BarWidth = maxBarWidth * fillRatio, BarColor = "#F85149"
+                });
+            }
+            else if (isSoon)
+            {
+                slots.Add(new
+                {
+                    Icon = "🟡",
+                    TimeSlot = $"{h:00}:00-{h+1:00}:00",
+                    StatusText = "Yaklaşan randevu",
+                    BgColor = "#2D2518", BorderColor = "#D29922",
+                    BarWidth = maxBarWidth * 0.3, BarColor = "#D29922"
+                });
+            }
             else
-                slots.Add(new { Icon = "🟢", TimeSlot = $"{h:00}:00-{h+1:00}:00",
-                    StatusText = "Müsait", BgColor = "#152D18" });
+            {
+                slots.Add(new
+                {
+                    Icon = "🟢",
+                    TimeSlot = $"{h:00}:00-{h+1:00}:00",
+                    StatusText = "Müsait",
+                    BgColor = "#152D18", BorderColor = "#3FB950",
+                    BarWidth = maxBarWidth * 1.0, BarColor = "#3FB950"
+                });
+            }
         }
         IcAvailability.ItemsSource = slots;
-        SetStatus($"✓ Dr. {doc.FullName} — {day:dd/MM/yyyy} müsaitlik durumu");
+        SetStatus($"✓ {doc.FullName} — {day:dd/MM/yyyy} müsaitlik gösteriliyor");
+    }
+
+    // ============ CALENDAR VIEW (Feature 4) ============
+    private void SwitchToTableView_Click(object? sender, RoutedEventArgs e)
+    {
+        AppTableView.IsVisible = true;
+        AppCalendarView.IsVisible = false;
+        BtnViewTable.Background = new SolidColorBrush(Color.Parse("#58A6FF"));
+        BtnViewTable.Foreground = new SolidColorBrush(Colors.White);
+        BtnViewCalendar.Background = new SolidColorBrush(Color.Parse("#1C2128"));
+        BtnViewCalendar.Foreground = new SolidColorBrush(Color.Parse("#8B949E"));
+    }
+
+    private void SwitchToCalendarView_Click(object? sender, RoutedEventArgs e)
+    {
+        AppTableView.IsVisible = false;
+        AppCalendarView.IsVisible = true;
+        BtnViewCalendar.Background = new SolidColorBrush(Color.Parse("#58A6FF"));
+        BtnViewCalendar.Foreground = new SolidColorBrush(Colors.White);
+        BtnViewTable.Background = new SolidColorBrush(Color.Parse("#1C2128"));
+        BtnViewTable.Foreground = new SolidColorBrush(Color.Parse("#8B949E"));
+        BuildCalendarGrid();
+    }
+
+    private void PrevWeek_Click(object? sender, RoutedEventArgs e)
+    { _currentWeekStart = _currentWeekStart.AddDays(-7); BuildCalendarGrid(); }
+
+    private void NextWeek_Click(object? sender, RoutedEventArgs e)
+    { _currentWeekStart = _currentWeekStart.AddDays(7); BuildCalendarGrid(); }
+
+    private void GoToday_Click(object? sender, RoutedEventArgs e)
+    {
+        int dow = (int)DateTime.Today.DayOfWeek;
+        _currentWeekStart = DateTime.Today.AddDays(dow == 0 ? -6 : 1 - dow);
+        BuildCalendarGrid();
+    }
+
+    private void BuildCalendarGrid()
+    {
+        var weekEnd = _currentWeekStart.AddDays(6);
+        TxtWeekLabel.Text = $"{_currentWeekStart:dd MMM} – {weekEnd:dd MMM yyyy}";
+
+        // 8 columns: time label + 7 days
+        // 10 rows: header + 09:00-17:00 (9 slots)
+        var grid = new Grid { Background = new SolidColorBrush(Color.Parse("#0D1117")) };
+
+        for (int c = 0; c < 8; c++)
+            grid.ColumnDefinitions.Add(new ColumnDefinition(c == 0
+                ? GridLength.Parse("60")
+                : GridLength.Parse("*")));
+
+        int totalRows = 10; // header + 9 hour slots
+        for (int r = 0; r < totalRows; r++)
+            grid.RowDefinitions.Add(new RowDefinition(GridLength.Parse(r == 0 ? "32" : "52")));
+
+        string[] dayNames = { "Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz" };
+
+        // Header row: day names
+        // Time column header
+        var timeHeader = new Border
+        {
+            Background = new SolidColorBrush(Color.Parse("#161B22")),
+            BorderBrush = new SolidColorBrush(Color.Parse("#30363D")),
+            BorderThickness = new Thickness(0, 0, 1, 1)
+        };
+        Grid.SetRow(timeHeader, 0); Grid.SetColumn(timeHeader, 0);
+        grid.Children.Add(timeHeader);
+
+        for (int d = 0; d < 7; d++)
+        {
+            var date = _currentWeekStart.AddDays(d);
+            bool isToday = date.Date == DateTime.Today;
+            var hdr = new Border
+            {
+                Background = new SolidColorBrush(Color.Parse(isToday ? "#1C2F4A" : "#161B22")),
+                BorderBrush = new SolidColorBrush(Color.Parse("#30363D")),
+                BorderThickness = new Thickness(0, 0, 1, 1),
+                Child = new TextBlock
+                {
+                    Text = $"{dayNames[d]}\n{date:dd/MM}",
+                    FontSize = 11, FontWeight = FontWeight.SemiBold,
+                    Foreground = new SolidColorBrush(Color.Parse(isToday ? "#58A6FF" : "#8B949E")),
+                    TextAlignment = TextAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Center
+                }
+            };
+            Grid.SetRow(hdr, 0); Grid.SetColumn(hdr, d + 1);
+            grid.Children.Add(hdr);
+        }
+
+        // Hour rows
+        for (int h = 0; h < 9; h++)
+        {
+            int hour = 9 + h;
+            int row = h + 1;
+
+            // Time label
+            var timeLbl = new Border
+            {
+                Background = new SolidColorBrush(Color.Parse("#161B22")),
+                BorderBrush = new SolidColorBrush(Color.Parse("#30363D")),
+                BorderThickness = new Thickness(0, 0, 1, 1),
+                Child = new TextBlock
+                {
+                    Text = $"{hour:00}:00",
+                    FontSize = 10,
+                    Foreground = new SolidColorBrush(Color.Parse("#8B949E")),
+                    VerticalAlignment = VerticalAlignment.Top,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = new Thickness(0, 4, 0, 0)
+                }
+            };
+            Grid.SetRow(timeLbl, row); Grid.SetColumn(timeLbl, 0);
+            grid.Children.Add(timeLbl);
+
+            // Day cells
+            for (int d = 0; d < 7; d++)
+            {
+                var date = _currentWeekStart.AddDays(d);
+                bool isToday = date.Date == DateTime.Today;
+                var slotStart = date.AddHours(hour);
+                var slotEnd = slotStart.AddHours(1);
+
+                var cellApps = _appointments.Values()
+                    .Where(a => a.Start >= slotStart && a.Start < slotEnd)
+                    .OrderBy(a => a.Start).ToList();
+
+                Control cellContent;
+                string cellBg = isToday ? "#1C2128" : "#0D1117";
+
+                if (cellApps.Count > 0)
+                {
+                    var app = cellApps[0];
+                    bool isDone = app.Status == "Completed";
+                    string appBg = isDone ? "#152D18" : "#1C2F4A";
+                    string appFg = isDone ? "#3FB950" : "#58A6FF";
+                    string extraBadge = cellApps.Count > 1 ? $" +{cellApps.Count - 1}" : "";
+
+                    var appBlock = new Border
+                    {
+                        Background = new SolidColorBrush(Color.Parse(appBg)),
+                        CornerRadius = new CornerRadius(4),
+                        Margin = new Thickness(2),
+                        Padding = new Thickness(4, 2),
+                        Child = new StackPanel
+                        {
+                            Children =
+                            {
+                                new TextBlock
+                                {
+                                    Text = $"{app.Start:HH:mm} {app.Patient.FullName}{extraBadge}",
+                                    FontSize = 10, FontWeight = FontWeight.SemiBold,
+                                    Foreground = new SolidColorBrush(Color.Parse(appFg)),
+                                    TextTrimming = TextTrimming.CharacterEllipsis
+                                },
+                                new TextBlock
+                                {
+                                    Text = app.Doctor.FullName,
+                                    FontSize = 9,
+                                    Foreground = new SolidColorBrush(Color.Parse("#8B949E")),
+                                    TextTrimming = TextTrimming.CharacterEllipsis
+                                }
+                            }
+                        }
+                    };
+                    cellContent = appBlock;
+                }
+                else
+                {
+                    cellContent = new Border(); // empty cell
+                }
+
+                var cell = new Border
+                {
+                    Background = new SolidColorBrush(Color.Parse(cellBg)),
+                    BorderBrush = new SolidColorBrush(Color.Parse("#21262D")),
+                    BorderThickness = new Thickness(0, 0, 1, 1),
+                    Child = cellContent
+                };
+                Grid.SetRow(cell, row); Grid.SetColumn(cell, d + 1);
+                grid.Children.Add(cell);
+            }
+        }
+
+        CalendarContent.Content = grid;
     }
 
     // ============ THEME TOGGLE ============
@@ -600,25 +804,22 @@ public partial class MainWindow : Window
             .Where(d => d.FirstName.ToLowerInvariant().Contains(q) ||
                         d.LastName.ToLowerInvariant().Contains(q) ||
                         (d.Department?.Name ?? "").ToLowerInvariant().Contains(q))
-            .Select(d => new DoctorViewModel
-            { Id = d.Id, FirstName = d.FirstName, LastName = d.LastName,
-              DeptName = d.Department?.Name ?? "N/A", Phone = d.Phone }).ToList();
+            .Select(d => new { d.Id, d.FirstName, d.LastName, DeptName = d.Department?.Name ?? "N/A", d.Phone }).ToList();
     }
 
     // ============ DELETE / EDIT ============
     private void DeletePatient_Click(object? sender, RoutedEventArgs e)
     {
         if (DgPatients.SelectedItem == null) { ShowMsg("Silmek için bir hasta seçin!"); return; }
-        if (DgPatients.SelectedItem is not Patient sel) return;
-        int id = sel.Id;
+        dynamic sel = DgPatients.SelectedItem;
+        int id = (int)sel.Id;
         var p = _patients.Get(id);
         if (p == null) return;
 
+        // Fix 5: Confirmation dialog
         TxtDeleteConfirmMsg.Text = $"⚠️ '{p.FullName}' (ID: {id}) hastasını silmek istediğinize emin misiniz?";
         _pendingDeleteAction = () =>
         {
-            _undoStack.Push("PATIENT_DELETE:" + id, p);
-
             foreach (int appId in _appointments.Values().Where(a => a.Patient.Id == id).Select(a => a.Id).ToList())
             { _appointments.Remove(appId); _db.DeleteAppointment(appId); }
 
@@ -630,14 +831,16 @@ public partial class MainWindow : Window
         PanelDeleteConfirm.IsVisible = true;
     }
 
+    // Fix 4: Safe in-place edit
     private void EditPatient_Click(object? sender, RoutedEventArgs e)
     {
         if (DgPatients.SelectedItem == null) { ShowMsg("Düzenlemek için bir hasta seçin!"); return; }
-        if (DgPatients.SelectedItem is not Patient sel) return;
-        int id = sel.Id;
+        dynamic sel = DgPatients.SelectedItem;
+        int id = (int)sel.Id;
         var p = _patients.Get(id);
         if (p == null) return;
 
+        // Just populate form — no deletion
         _editingPatientId = id;
         TxtPatientFirstName.Text = p.FirstName;
         TxtPatientLastName.Text = p.LastName;
@@ -652,23 +855,15 @@ public partial class MainWindow : Window
     private void DeleteDoctor_Click(object? sender, RoutedEventArgs e)
     {
         if (DgDoctors.SelectedItem == null) { ShowMsg("Silmek için bir doktor seçin!"); return; }
-        if (DgDoctors.SelectedItem is not DoctorViewModel sel) return;
-        int id = sel.Id;
+        dynamic sel = DgDoctors.SelectedItem;
+        int id = (int)sel.Id;
         var d = _doctors.Get(id);
         if (d == null) return;
 
+        // Fix 5: Confirmation dialog
         TxtDeleteConfirmMsg.Text = $"⚠️ '{d.FullName}' (ID: {id}) doktoru silmek istediğinize emin misiniz?";
         _pendingDeleteAction = () =>
         {
-            _undoStack.Push("DOCTOR_DELETE:" + id, d);
-
-            // Doktorun tüm randevularını temizle (NullReferenceException önlemi)
-            foreach (int appId in _appointments.Values().Where(a => a.Doctor.Id == id).Select(a => a.Id).ToList())
-            {
-                _appointments.Remove(appId);
-                _db.DeleteAppointment(appId);
-            }
-
             d.Department?.Doctors.Remove(d);
             _doctors.Remove(id); _db.DeleteDoctor(id);
             RefreshDoctorList(); RefreshDepartmentList();
@@ -677,6 +872,7 @@ public partial class MainWindow : Window
         PanelDeleteConfirm.IsVisible = true;
     }
 
+    // Fix 5: Confirmation handlers
     private void ConfirmDelete_Click(object? sender, RoutedEventArgs e)
     {
         _pendingDeleteAction?.Invoke();
@@ -738,15 +934,9 @@ public partial class MainWindow : Window
 
         foreach (var (id, pid, did, start, end, status) in _db.LoadAppointments())
         { var p = _patients.Get(pid); var d = _doctors.Get(did);
-          if (p != null && d != null)
-          {
-              var app = new Appointment(id, p, d, DateTime.Parse(start));
-              app.Status = status; _appointments.Put(id, app);
-              // FIX: Tamamlanmış randevuları kuyruğa ekleme — her restart'ta kuyruk şişmesin
-              if (status != "Completed") d.DailyQueue.Enqueue(app);
-              if (id > _appointmentIdCounter) _appointmentIdCounter = id;
-          }
-        }
+          if (p != null && d != null) { var app = new Appointment(id, p, d, DateTime.Parse(start));
+            app.Status = status; _appointments.Put(id, app); d.DailyQueue.Enqueue(app);
+            if (id > _appointmentIdCounter) _appointmentIdCounter = id; } }
     }
 
     // ============ REPORT EXPORT ============
@@ -820,11 +1010,18 @@ public partial class MainWindow : Window
     private void RoleChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (CbRole == null) return;
+        // Guard: buttons may not be initialized yet during startup
         if (BtnRegisterPatient == null) return;
 
         int role = CbRole.SelectedIndex; // 0=Admin, 1=Doktor, 2=Hemşire
         bool isAdmin = role == 0;
         bool isDoctor = role == 1;
+        bool isNurse = role == 2;
+
+        // Fix 1: Actually enable/disable buttons per role
+        // Admin = full access
+        // Doktor = can register patients, create appointments, examine; NO delete, dept, undo
+        // Hemşire = view-only, all write operations disabled
 
         BtnRegisterPatient.IsEnabled = isAdmin || isDoctor;
         BtnEditPatient.IsEnabled = isAdmin || isDoctor;
@@ -846,17 +1043,4 @@ public partial class MainWindow : Window
             _ => ""
         });
     }
-}
-
-/// <summary>
-/// Strongly typed ViewModel for Doctor DataGrid.
-/// Prevents runtime exceptions from dynamic casting.
-/// </summary>
-public class DoctorViewModel
-{
-    public int Id { get; set; }
-    public string FirstName { get; set; } = "";
-    public string LastName { get; set; } = "";
-    public string DeptName { get; set; } = "";
-    public string Phone { get; set; } = "";
 }
