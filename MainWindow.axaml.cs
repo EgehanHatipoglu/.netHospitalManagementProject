@@ -447,14 +447,36 @@ public partial class MainWindow : Window
     {
         IcERQueue.ItemsSource = _erQueue.GetAllSorted().Select((p, i) =>
         {
-            string bgColor, borderColor, sevColor;
-            if (p.Severity >= 8) { bgColor = "#2D1518"; borderColor = "#F85149"; sevColor = "#F85149"; }
-            else if (p.Severity >= 5) { bgColor = "#2D2518"; borderColor = "#D29922"; sevColor = "#D29922"; }
-            else { bgColor = "#152D18"; borderColor = "#3FB950"; sevColor = "#3FB950"; }
-            return new { RankStr = $"#{i+1}", PatientName = p.Patient.FullName,
-                SeverityBadge = $"{p.Severity}/10", SeverityColor = sevColor,
-                p.Complaint, ArrivalTime = p.ArrivalTime.ToString("HH:mm"),
-                BgColor = bgColor, BorderColor = borderColor };
+            SolidColorBrush bgBrush, borderBrush, sevBrush;
+            if (p.Severity >= 8)
+            {
+                bgBrush = new SolidColorBrush(Color.Parse("#2D1518"));
+                borderBrush = new SolidColorBrush(Color.Parse("#F85149"));
+                sevBrush = new SolidColorBrush(Color.Parse("#F85149"));
+            }
+            else if (p.Severity >= 5)
+            {
+                bgBrush = new SolidColorBrush(Color.Parse("#2D2518"));
+                borderBrush = new SolidColorBrush(Color.Parse("#D29922"));
+                sevBrush = new SolidColorBrush(Color.Parse("#D29922"));
+            }
+            else
+            {
+                bgBrush = new SolidColorBrush(Color.Parse("#152D18"));
+                borderBrush = new SolidColorBrush(Color.Parse("#3FB950"));
+                sevBrush = new SolidColorBrush(Color.Parse("#3FB950"));
+            }
+            return new
+            {
+                RankStr = $"#{i+1}",
+                PatientName = p.Patient.FullName,
+                SeverityBadge = $"{p.Severity}/10",
+                SevBrush = (IBrush)sevBrush,
+                p.Complaint,
+                ArrivalTime = p.ArrivalTime.ToString("HH:mm"),
+                BgBrush = (IBrush)bgBrush,
+                BorderBrush = (IBrush)borderBrush
+            };
         }).ToList();
     }
 
@@ -533,15 +555,16 @@ public partial class MainWindow : Window
 
             if (conflict != null)
             {
-                // Fill bar proportional to appointment duration within the slot
                 double fillRatio = Math.Min(1.0, (double)Appointment.AppointmentDuration / 60.0);
                 slots.Add(new
                 {
                     Icon = "🔴",
                     TimeSlot = $"{h:00}:00-{h+1:00}:00",
                     StatusText = $"Dolu — {conflict.Patient.FullName}",
-                    BgColor = "#2D1518", BorderColor = "#F85149",
-                    BarWidth = maxBarWidth * fillRatio, BarColor = "#F85149"
+                    BgBrush = (IBrush)new SolidColorBrush(Color.Parse("#2D1518")),
+                    BorderBrush = (IBrush)new SolidColorBrush(Color.Parse("#F85149")),
+                    BarWidth = maxBarWidth * fillRatio,
+                    BarBrush = (IBrush)new SolidColorBrush(Color.Parse("#F85149"))
                 });
             }
             else if (isSoon)
@@ -551,8 +574,10 @@ public partial class MainWindow : Window
                     Icon = "🟡",
                     TimeSlot = $"{h:00}:00-{h+1:00}:00",
                     StatusText = "Yaklaşan randevu",
-                    BgColor = "#2D2518", BorderColor = "#D29922",
-                    BarWidth = maxBarWidth * 0.3, BarColor = "#D29922"
+                    BgBrush = (IBrush)new SolidColorBrush(Color.Parse("#2D2518")),
+                    BorderBrush = (IBrush)new SolidColorBrush(Color.Parse("#D29922")),
+                    BarWidth = maxBarWidth * 0.3,
+                    BarBrush = (IBrush)new SolidColorBrush(Color.Parse("#D29922"))
                 });
             }
             else
@@ -562,8 +587,10 @@ public partial class MainWindow : Window
                     Icon = "🟢",
                     TimeSlot = $"{h:00}:00-{h+1:00}:00",
                     StatusText = "Müsait",
-                    BgColor = "#152D18", BorderColor = "#3FB950",
-                    BarWidth = maxBarWidth * 1.0, BarColor = "#3FB950"
+                    BgBrush = (IBrush)new SolidColorBrush(Color.Parse("#152D18")),
+                    BorderBrush = (IBrush)new SolidColorBrush(Color.Parse("#3FB950")),
+                    BarWidth = maxBarWidth * 1.0,
+                    BarBrush = (IBrush)new SolidColorBrush(Color.Parse("#3FB950"))
                 });
             }
         }

@@ -411,9 +411,9 @@
                                 <ItemsControl x:Name="IcAvailability">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Border Background="{Binding BgColor}" BorderBrush="{Binding BorderColor}" BorderThickness="1" CornerRadius="4" Padding="12,6" Margin="0,2" ClipToBounds="True">
+                                            <Border Background="{Binding BgBrush}" BorderBrush="{Binding BorderBrush}" BorderThickness="1" CornerRadius="4" Padding="12,6" Margin="0,2" ClipToBounds="True">
                                                 <Grid>
-                                                    <Border Width="{Binding BarWidth}" Background="{Binding BarColor}" HorizontalAlignment="Left" CornerRadius="2" Opacity="0.3"/>
+                                                    <Border Width="{Binding BarWidth}" Background="{Binding BarBrush}" HorizontalAlignment="Left" CornerRadius="2" Opacity="0.3"/>
                                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                                         <TextBlock Text="{Binding Icon}" FontSize="14" VerticalAlignment="Center"/>
                                                         <TextBlock Text="{Binding TimeSlot}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
@@ -472,12 +472,12 @@
                                 <ItemsControl x:Name="IcERQueue">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Border Background="{Binding BgColor}" CornerRadius="6" Padding="12,8" Margin="0,3"
-                                                    BorderBrush="{Binding BorderColor}" BorderThickness="1">
+                                            <Border Background="{Binding BgBrush}" CornerRadius="6" Padding="12,8" Margin="0,3"
+                                                    BorderBrush="{Binding BorderBrush}" BorderThickness="1">
                                                 <Grid ColumnDefinitions="40,*,60,*,80">
                                                     <TextBlock Grid.Column="0" Text="{Binding RankStr}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                                                     <TextBlock Grid.Column="1" Text="{Binding PatientName}" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
-                                                    <TextBlock Grid.Column="2" Text="{Binding SeverityBadge}" FontSize="14" FontWeight="Bold" Foreground="{Binding SeverityColor}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="2" Text="{Binding SeverityBadge}" FontSize="14" FontWeight="Bold" Foreground="{Binding SevBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                     <TextBlock Grid.Column="3" Text="{Binding Complaint}" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                                                     <TextBlock Grid.Column="4" Text="{Binding ArrivalTime}" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                                                 </Grid>
