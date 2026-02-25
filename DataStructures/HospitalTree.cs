@@ -1,7 +1,7 @@
 using System.Collections.Generic;
-using HospitalManagementWPF.Models;
+using HospitalManagementAvolonia.Models;
 
-namespace HospitalManagementWPF.DataStructures
+namespace HospitalManagementAvolonia.DataStructures
 {
     /// <summary>
     /// N-ary (General) Tree representing the hospital organizational hierarchy.
@@ -56,7 +56,14 @@ namespace HospitalManagementWPF.DataStructures
         private void GetHierarchyRec(DepartmentTreeNode node, int level,
             List<(string name, int level, int doctorCount)> result)
         {
-            result.Add((node.Department.Name, level, node.Department.DoctorCount));
+            if (level == 0)
+            {
+                result.Add((node.Department.Name, level, CountDoctors(node)));
+            }
+            else
+            {
+                result.Add((node.Department.Name, level, node.Department.DoctorCount));
+            }
 
             foreach (var child in node.Children)
             {

@@ -1,6 +1,6 @@
-using HospitalManagementWPF.DataStructures;
+using HospitalManagementAvolonia.DataStructures;
 
-namespace HospitalManagementWPF.Models
+namespace HospitalManagementAvolonia.Models
 {
     /// <summary>
     /// Doctor model with a daily appointment queue.
@@ -11,6 +11,8 @@ namespace HospitalManagementWPF.Models
         public string FirstName { get; set; }
         public string LastName { get; set; }
         public Department? Department { get; set; }
+        public int DepartmentId { get; set; }
+        public string DeptName => Department?.Name ?? "N/A";
         public string Phone { get; set; }
         public AppointmentQueue DailyQueue { get; set; }
 

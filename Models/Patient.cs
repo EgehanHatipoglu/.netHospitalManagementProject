@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace HospitalManagementWPF.Models
+namespace HospitalManagementAvolonia.Models
 {
     /// <summary>
     /// Patient model with a Singly Linked List for medical history.

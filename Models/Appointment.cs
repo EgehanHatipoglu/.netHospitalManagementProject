@@ -1,6 +1,6 @@
 using System;
 
-namespace HospitalManagementWPF.Models
+namespace HospitalManagementAvolonia.Models
 {
     /// <summary>
     /// Appointment model with dynamic duration based on Student ID.

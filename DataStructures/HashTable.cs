@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace HospitalManagementWPF.DataStructures
+namespace HospitalManagementAvolonia.DataStructures
 {
     /// <summary>
     /// Custom Generic Hash Table with Separate Chaining.
@@ -28,11 +28,11 @@ namespace HospitalManagementWPF.DataStructures
         private int _size;
 
         /// <summary>
-        /// Constructor: Calculates the table capacity using the Student ID.
+        /// Constructor: Initializes the hash table with a specific capacity.
         /// </summary>
-        public HashTable(int studentId)
+        public HashTable(int capacity = 100)
         {
-            _capacity = (studentId % 100) + 50;
+            _capacity = capacity;
             _buckets = new HashNode?[_capacity];
             _size = 0;
         }

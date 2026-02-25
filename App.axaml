@@ -1,35 +1,88 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="HospitalManagementWPF.App"
-             RequestedThemeVariant="Dark">
+             x:Class="HospitalManagementAvolonia.App"
+             RequestedThemeVariant="Light">
     <Application.Styles>
         <FluentTheme />
         <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
     </Application.Styles>
     <Application.Resources>
-        <Color x:Key="PrimaryBg">#0D1117</Color>
-        <Color x:Key="SidebarBg">#161B22</Color>
-        <Color x:Key="CardBg">#21262D</Color>
-        <Color x:Key="AccentBlue">#58A6FF</Color>
-        <Color x:Key="AccentGreen">#3FB950</Color>
-        <Color x:Key="AccentRed">#F85149</Color>
-        <Color x:Key="AccentOrange">#D29922</Color>
-        <Color x:Key="AccentPurple">#BC8CFF</Color>
-        <Color x:Key="TextPrimary">#E6EDF3</Color>
-        <Color x:Key="TextSecondary">#8B949E</Color>
-        <Color x:Key="BorderClr">#30363D</Color>
-        <Color x:Key="HoverBg">#1C2128</Color>
+        <!-- ═══════════════════════════════════════════
+             LIGHT THEME TOKENS  (default)
+             Toggle these via App.axaml.cs on theme change
+             ═══════════════════════════════════════════ -->
 
-        <SolidColorBrush x:Key="PrimaryBgBrush" Color="{StaticResource PrimaryBg}" />
-        <SolidColorBrush x:Key="SidebarBgBrush" Color="{StaticResource SidebarBg}" />
-        <SolidColorBrush x:Key="CardBgBrush" Color="{StaticResource CardBg}" />
-        <SolidColorBrush x:Key="AccentBlueBrush" Color="{StaticResource AccentBlue}" />
-        <SolidColorBrush x:Key="AccentGreenBrush" Color="{StaticResource AccentGreen}" />
-        <SolidColorBrush x:Key="AccentRedBrush" Color="{StaticResource AccentRed}" />
-        <SolidColorBrush x:Key="AccentOrangeBrush" Color="{StaticResource AccentOrange}" />
-        <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimary}" />
-        <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondary}" />
-        <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource BorderClr}" />
-        <SolidColorBrush x:Key="HoverBgBrush" Color="{StaticResource HoverBg}" />
+        <!-- Background surfaces -->
+        <Color x:Key="PrimaryBg">#F3F4F6</Color>
+        <Color x:Key="SidebarBg">#FFFFFF</Color>
+        <Color x:Key="CardBg">#FFFFFF</Color>
+        <Color x:Key="HoverBg">#F9FAFB</Color>
+        <Color x:Key="InputBg">#F9FAFB</Color>
+
+        <!-- Text -->
+        <Color x:Key="TextPrimary">#111827</Color>
+        <Color x:Key="TextSecondary">#4B5563</Color>
+        <Color x:Key="TextMuted">#9CA3AF</Color>
+        <Color x:Key="TextOnAccent">#FFFFFF</Color>
+
+        <!-- Border / Divider -->
+        <Color x:Key="BorderClr">#E5E7EB</Color>
+        <Color x:Key="DividerClr">#F3F4F6</Color>
+
+        <!-- Accent palette -->
+        <Color x:Key="AccentBlue">#2563EB</Color>
+        <Color x:Key="AccentBlueLight">#DBEAFE</Color>
+        <Color x:Key="AccentGreen">#16A34A</Color>
+        <Color x:Key="AccentGreenLight">#DCFCE7</Color>
+        <Color x:Key="AccentRed">#DC2626</Color>
+        <Color x:Key="AccentRedLight">#FEE2E2</Color>
+        <Color x:Key="AccentOrange">#D97706</Color>
+        <Color x:Key="AccentOrangeLight">#FEF3C7</Color>
+        <Color x:Key="AccentPurple">#7C3AED</Color>
+        <Color x:Key="AccentPurpleLight">#EDE9FE</Color>
+
+        <!-- Status / semantic -->
+        <Color x:Key="StatusSuccess">#16A34A</Color>
+        <Color x:Key="StatusWarning">#D97706</Color>
+        <Color x:Key="StatusError">#DC2626</Color>
+        <Color x:Key="StatusInfo">#2563EB</Color>
+
+        <!-- ── Brushes ─────────────────────────────── -->
+        <SolidColorBrush x:Key="PrimaryBgBrush"       Color="{StaticResource PrimaryBg}" />
+        <SolidColorBrush x:Key="SidebarBgBrush"       Color="{StaticResource SidebarBg}" />
+        <SolidColorBrush x:Key="CardBgBrush"          Color="{StaticResource CardBg}" />
+        <SolidColorBrush x:Key="HoverBgBrush"         Color="{StaticResource HoverBg}" />
+        <SolidColorBrush x:Key="InputBgBrush"         Color="{StaticResource InputBg}" />
+        <SolidColorBrush x:Key="AccentBlueBrush"      Color="{StaticResource AccentBlue}" />
+        <SolidColorBrush x:Key="AccentBlueLightBrush" Color="{StaticResource AccentBlueLight}" />
+        <SolidColorBrush x:Key="AccentGreenBrush"     Color="{StaticResource AccentGreen}" />
+        <SolidColorBrush x:Key="AccentGreenLightBrush" Color="{StaticResource AccentGreenLight}" />
+        <SolidColorBrush x:Key="AccentRedBrush"       Color="{StaticResource AccentRed}" />
+        <SolidColorBrush x:Key="AccentRedLightBrush"  Color="{StaticResource AccentRedLight}" />
+        <SolidColorBrush x:Key="AccentOrangeBrush"    Color="{StaticResource AccentOrange}" />
+        <SolidColorBrush x:Key="AccentOrangeLightBrush" Color="{StaticResource AccentOrangeLight}" />
+        <SolidColorBrush x:Key="AccentPurpleBrush"    Color="{StaticResource AccentPurple}" />
+        <SolidColorBrush x:Key="TextPrimaryBrush"     Color="{StaticResource TextPrimary}" />
+        <SolidColorBrush x:Key="TextSecondaryBrush"   Color="{StaticResource TextSecondary}" />
+        <SolidColorBrush x:Key="TextMutedBrush"       Color="{StaticResource TextMuted}" />
+        <SolidColorBrush x:Key="BorderBrush"          Color="{StaticResource BorderClr}" />
+        <SolidColorBrush x:Key="DividerBrush"         Color="{StaticResource DividerClr}" />
+
+        <!-- ── Typography scale ──────────────────────── -->
+        <x:Double x:Key="FontXS">11</x:Double>
+        <x:Double x:Key="FontSM">13</x:Double>
+        <x:Double x:Key="FontBase">14</x:Double>
+        <x:Double x:Key="FontLG">16</x:Double>
+        <x:Double x:Key="FontXL">18</x:Double>
+        <x:Double x:Key="Font2XL">22</x:Double>
+        <x:Double x:Key="Font3XL">28</x:Double>
+
+        <!-- ── Corner radius ─────────────────────────── -->
+        <CornerRadius x:Key="RadiusSM">4</CornerRadius>
+        <CornerRadius x:Key="RadiusMD">6</CornerRadius>
+        <CornerRadius x:Key="RadiusLG">8</CornerRadius>
+        <CornerRadius x:Key="RadiusXL">12</CornerRadius>
+        <CornerRadius x:Key="RadiusFull">999</CornerRadius>
     </Application.Resources>
 </Application>
+

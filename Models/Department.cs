@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace HospitalManagementWPF.Models
+namespace HospitalManagementAvolonia.Models
 {
     /// <summary>
     /// Department model with capacity management.

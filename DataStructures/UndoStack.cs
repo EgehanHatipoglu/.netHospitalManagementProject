@@ -1,4 +1,4 @@
-namespace HospitalManagementWPF.DataStructures
+namespace HospitalManagementAvolonia.DataStructures
 {
     /// <summary>
     /// Linked-List Stack for Undo operations.

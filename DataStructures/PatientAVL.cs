@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using HospitalManagementWPF.Models;
+using HospitalManagementAvolonia.Models;
 
-namespace HospitalManagementWPF.DataStructures
+namespace HospitalManagementAvolonia.DataStructures
 {
     /// <summary>
     /// AVL Tree (Self-Balancing BST) for patient search by name.

@@ -1,7 +1,7 @@
 using System.Collections.Generic;
-using HospitalManagementWPF.Models;
+using HospitalManagementAvolonia.Models;
 
-namespace HospitalManagementWPF.DataStructures
+namespace HospitalManagementAvolonia.DataStructures
 {
     /// <summary>
     /// FIFO Linked-List Queue for managing a doctor's daily appointments.

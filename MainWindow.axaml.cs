@@ -2,23 +2,20 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
-using HospitalManagementWPF.Data;
-using HospitalManagementWPF.DataStructures;
-using HospitalManagementWPF.Models;
+using HospitalManagementAvolonia.Data;
+using HospitalManagementAvolonia.DataStructures;
+using HospitalManagementAvolonia.Models;
 
-namespace HospitalManagementWPF;
+namespace HospitalManagementAvolonia;
 
 public partial class MainWindow : Window
 {
-    private const int STUDENT_ID = 230316064;
-    private readonly int MAX_PATIENT_NUMBER;
-    private readonly int MAX_DOCTOR_NUMBER;
-
     private HashTable<int, Patient> _patients;
     private HashTable<int, Doctor> _doctors;
     private HashTable<int, Appointment> _appointments;
@@ -29,7 +26,14 @@ public partial class MainWindow : Window
     private HospitalTree _hospitalTree;
     private ERPriorityQueue _erQueue;
     private UndoStack _undoStack;
-    private DatabaseManager _db;
+    
+    // Phase 2 Data Structures
+    private PatientTrie _patientTrie;
+    private DoctorGraph _doctorGraph;
+    private PatientLRUCache _lruCache;
+    private AppointmentSegmentTree _segmentTree;
+
+    private IDatabaseService _db;
 
     private int _patientIdCounter, _doctorIdCounter, _appointmentIdCounter, _departmentIdCounter;
 
@@ -45,24 +49,34 @@ public partial class MainWindow : Window
     // Feature 4: Calendar week state
     private DateTime _currentWeekStart;
 
+    private HashSet<int> _notifiedAppointmentIds = new();
+
     public MainWindow()
     {
         InitializeComponent();
+        
+        // Resolve the entire MVVM data context tree from DI and bind it to the view
+        DataContext = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<ViewModels.MainViewModel>(App.Services!);
 
-        MAX_PATIENT_NUMBER = STUDENT_ID % 10 + 3;
-        MAX_DOCTOR_NUMBER = STUDENT_ID % 10 + 8;
-
-        _patients = new HashTable<int, Patient>(STUDENT_ID);
-        _doctors = new HashTable<int, Doctor>(STUDENT_ID);
-        _appointments = new HashTable<int, Appointment>(STUDENT_ID);
-        _departments = new HashTable<int, Department>(STUDENT_ID);
+        _patients = new HashTable<int, Patient>();
+        _doctors = new HashTable<int, Doctor>();
+        _appointments = new HashTable<int, Appointment>();
+        _departments = new HashTable<int, Department>();
 
         _patientBST = new PatientBST();
         _patientAVL = new PatientAVL();
         _hospitalTree = new HospitalTree("Manisa Celal Bayar University Hospital");
         _erQueue = new ERPriorityQueue();
         _undoStack = new UndoStack();
-        _db = new DatabaseManager();
+
+        // Phase 2 Instantiations
+        _patientTrie = new PatientTrie();
+        _doctorGraph = new DoctorGraph();
+        _lruCache = new PatientLRUCache(10);
+        // Track appointments for the next 30 days and previous 30 days (60 days total capacity roughly)
+        _segmentTree = new AppointmentSegmentTree(DateTime.Today.AddDays(-30), 100);
+
+        _db = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<IDatabaseService>(App.Services!);
 
         _allPanels = new[] { PanelDashboard, PanelPatients, PanelDoctors, PanelAppointments, PanelEmergency,
                              PanelBST, PanelAVL, PanelDepartments, PanelUndo, PanelStats };
@@ -73,14 +87,17 @@ public partial class MainWindow : Window
                 TxtSeverityValue.Text = ((int)SliderSeverity.Value).ToString();
         };
 
-        LoadSampleData();
-        LoadFromDatabase();
-        RefreshAllViews();
-        RefreshDashboard();
-
         // Initialize calendar to current week (Monday)
         int dow = (int)DateTime.Today.DayOfWeek;
         _currentWeekStart = DateTime.Today.AddDays(dow == 0 ? -6 : 1 - dow);
+    }
+
+    public async System.Threading.Tasks.Task InitializeAsync()
+    {
+        await LoadSampleDataAsync();
+        await LoadFromDatabaseAsync();
+        RefreshAllViews();
+        // Dashboard loaded via ViewModel
     }
 
     // ============ NAVIGATION ============
@@ -91,7 +108,7 @@ public partial class MainWindow : Window
             foreach (var p in _allPanels) p.IsVisible = false;
             switch (tag)
             {
-                case "Dashboard": PanelDashboard.IsVisible = true; RefreshDashboard(); break;
+                case "Dashboard": PanelDashboard.IsVisible = true; break;
                 case "Patients": PanelPatients.IsVisible = true; break;
                 case "Doctors": PanelDoctors.IsVisible = true; break;
                 case "Appointments": PanelAppointments.IsVisible = true; break;
@@ -139,7 +156,7 @@ public partial class MainWindow : Window
 
                     _patientBST.Insert(existing);
                     _patientAVL.Insert(existing);
-                    _db.SavePatient(existing);
+                    _ = System.Threading.Tasks.Task.Run(() => _db.SavePatientAsync(existing));
 
                     _editingPatientId = null;
                     BtnRegisterPatient.Content = "✓ Hasta Kaydet";
@@ -148,7 +165,6 @@ public partial class MainWindow : Window
             }
             else
             {
-                if (_patients.Size >= MAX_PATIENT_NUMBER) { ShowMsg($"Maks hasta kapasitesi: {MAX_PATIENT_NUMBER}"); return; }
                 if (_patientBST.Search(fn, ln) != null) { ShowValidation(TxtPatientValidation, "Bu isimde hasta mevcut!"); return; }
 
                 int id = 1;
@@ -157,7 +173,9 @@ public partial class MainWindow : Window
                 
                 var p = new Patient(id, fn, ln, nid, phone, bd);
                 _patients.Put(id, p); _patientBST.Insert(p); _patientAVL.Insert(p);
-                _undoStack.Push("PATIENT_ADD:" + id); _db.SavePatient(p);
+                _patientTrie.Insert(p); // Phase 2: Trie
+                _undoStack.Push("PATIENT_ADD:" + id); 
+                _ = System.Threading.Tasks.Task.Run(() => _db.SavePatientAsync(p));
                 SetStatus($"✓ Hasta kaydedildi! ID: {id}");
             }
 
@@ -178,40 +196,8 @@ public partial class MainWindow : Window
         }
     }
 
-    // ============ DOCTOR ============
-    private void RegisterDoctor_Click(object? sender, RoutedEventArgs e)
-    {
-        try
-        {
-            if (_doctors.Size >= MAX_DOCTOR_NUMBER) { ShowMsg($"Maks doktor kapasitesi: {MAX_DOCTOR_NUMBER}"); return; }
+    // Doctor registration is now handled by DoctorViewModel
 
-            string fn = TxtDoctorFirstName.Text?.Trim() ?? "";
-            string ln = TxtDoctorLastName.Text?.Trim() ?? "";
-            string phone = TxtDoctorPhone.Text?.Trim() ?? "";
-
-            if (string.IsNullOrEmpty(fn) || string.IsNullOrEmpty(ln)) { ShowMsg("Ad/Soyad boş olamaz!"); return; }
-
-            int si = CbDoctorDepartment.SelectedIndex;
-            if (si < 0 || si >= _departmentList.Count) { ShowMsg("Bölüm seçiniz!"); return; }
-
-            var dept = _departmentList[si];
-            int id = 1;
-            while (_doctors.Get(id) != null) id++;
-            if (id > _doctorIdCounter) _doctorIdCounter = id;
-            
-            var d = new Doctor(id, fn, ln, dept, phone);
-
-            if (dept.AddDoctor(d))
-            {
-                _doctors.Put(id, d); _undoStack.Push("DOCTOR_ADD:" + id); _db.SaveDoctor(d);
-                TxtDoctorFirstName.Text = ""; TxtDoctorLastName.Text = ""; TxtDoctorPhone.Text = "";
-                RefreshDoctorList(); RefreshDepartmentList();
-                SetStatus($"✓ Doktor kaydedildi! ID: {id}");
-            }
-            else { if (id == _doctorIdCounter) _doctorIdCounter--; ShowMsg($"Bölüm dolu: {dept.DoctorCount}/{dept.Capacity}"); }
-        }
-        catch (Exception ex) { ShowMsg(ex.Message); }
-    }
 
     // ============ APPOINTMENT ============
     private void CreateAppointment_Click(object? sender, RoutedEventArgs e)
@@ -234,7 +220,9 @@ public partial class MainWindow : Window
             int id = ++_appointmentIdCounter;
             var app = new Appointment(id, patient, doctor, dt);
             _appointments.Put(id, app); doctor.DailyQueue.Enqueue(app);
-            _undoStack.Push("APPOINTMENT_ADD:" + id); _db.SaveAppointment(app);
+            _segmentTree.AddAppointment(dt); // Phase 2: Segment Tree
+            _undoStack.Push("APPOINTMENT_ADD:" + id); 
+            _ = System.Threading.Tasks.Task.Run(() => _db.SaveAppointmentAsync(app));
 
             TxtAppPatientId.Text = ""; TxtAppDoctorId.Text = ""; TxtAppTime.Text = "";
             RefreshAppointmentList();
@@ -265,8 +253,8 @@ public partial class MainWindow : Window
             var app = d.DailyQueue.Dequeue(); if (app == null) { ShowMsg("Kuyruk boş."); return; }
             app.Patient.AddVisit(DateTime.Now, d, "Muayene tamamlandı");
             app.Status = "Completed";
-            _db.SaveVisit(app.Patient.Id, d.Id, DateTime.Now, "Muayene tamamlandı");
-            _db.SaveAppointment(app); // Fix 3: Persist status change to DB
+            _ = System.Threading.Tasks.Task.Run(() => _db.SaveVisitAsync(app.Patient.Id, d.Id, DateTime.Now, "Muayene tamamlandı"));
+            _ = System.Threading.Tasks.Task.Run(() => _db.SaveAppointmentAsync(app)); // Fix 3: Persist status change to DB
             ShowDoctorQueue_Click(sender, e); RefreshAppointmentList();
             SetStatus($"✓ Muayene: {app.Patient.FullName}");
         }
@@ -307,7 +295,17 @@ public partial class MainWindow : Window
     {
         var found = _patientBST.Search(TxtBSTFirstName.Text?.Trim() ?? "", TxtBSTLastName.Text?.Trim() ?? "");
         TxtBSTResult.Text = found != null ? $"✓ Bulundu! {found}" : "✗ Bulunamadı.";
-        TxtBSTResult.Foreground = new SolidColorBrush(found != null ? Color.Parse("#3FB950") : Color.Parse("#F85149"));
+        TxtBSTResult.Foreground = new SolidColorBrush(found != null ? Color.Parse("#16A34A") : Color.Parse("#DC2626"));
+        BtnListSearchedBST.IsVisible = found != null;
+    }
+
+    private void ListSearchedBST_Click(object? sender, RoutedEventArgs e)
+    {
+        var found = _patientBST.Search(TxtBSTFirstName.Text?.Trim() ?? "", TxtBSTLastName.Text?.Trim() ?? "");
+        if (found != null)
+        {
+            LbBST.ItemsSource = new List<string> { $"1. {found.FullName} (ID: {found.Id})" };
+        }
     }
 
     private void ListBST_Click(object? sender, RoutedEventArgs e)
@@ -322,7 +320,17 @@ public partial class MainWindow : Window
     {
         var found = _patientAVL.Search(TxtAVLFirstName.Text?.Trim() ?? "", TxtAVLLastName.Text?.Trim() ?? "");
         TxtAVLResult.Text = found != null ? $"✓ Bulundu! {found}" : "✗ Bulunamadı.";
-        TxtAVLResult.Foreground = new SolidColorBrush(found != null ? Color.Parse("#3FB950") : Color.Parse("#F85149"));
+        TxtAVLResult.Foreground = new SolidColorBrush(found != null ? Color.Parse("#16A34A") : Color.Parse("#DC2626"));
+        BtnListSearchedAVL.IsVisible = found != null;
+    }
+
+    private void ListSearchedAVL_Click(object? sender, RoutedEventArgs e)
+    {
+        var found = _patientAVL.Search(TxtAVLFirstName.Text?.Trim() ?? "", TxtAVLLastName.Text?.Trim() ?? "");
+        if (found != null)
+        {
+            LbAVL.ItemsSource = new List<string> { $"1. {found.FullName} (ID: {found.Id})" };
+        }
     }
 
     private void ListAVL_Click(object? sender, RoutedEventArgs e)
@@ -341,7 +349,8 @@ public partial class MainWindow : Window
         if (!int.TryParse(TxtDeptCapacity.Text, out int cap) || cap <= 0) { ShowMsg("Geçersiz kapasite!"); return; }
 
         var dept = new Department(++_departmentIdCounter, name, cap);
-        _departments.Put(_departmentIdCounter, dept); _hospitalTree.AddDepartmentToRoot(dept); _db.SaveDepartment(dept);
+        _departments.Put(_departmentIdCounter, dept); _hospitalTree.AddDepartmentToRoot(dept); 
+        _ = System.Threading.Tasks.Task.Run(() => _db.SaveDepartmentAsync(dept));
         TxtDeptName.Text = ""; TxtDeptCapacity.Text = "";
         RefreshDepartmentList();
         SetStatus($"✓ Bölüm oluşturuldu! ID: {_departmentIdCounter}");
@@ -365,7 +374,7 @@ public partial class MainWindow : Window
         if (_undoStack.IsEmpty)
         {
             TxtUndoResult.Text = "Geri alınacak işlem yok.";
-            TxtUndoResult.Foreground = new SolidColorBrush(Color.Parse("#D29922"));
+            TxtUndoResult.Foreground = new SolidColorBrush(Color.Parse("#D97706"));
             return;
         }
 
@@ -379,9 +388,15 @@ public partial class MainWindow : Window
             if (p != null)
             {
                 foreach (int appId in _appointments.Values().Where(a => a.Patient.Id == id).Select(a => a.Id).ToList())
-                { _appointments.Remove(appId); _db.DeleteAppointment(appId); }
+                { 
+                    var app = _appointments.Get(appId);
+                    if (app != null) _segmentTree.RemoveAppointment(app.Start); // Phase 2
+                    _appointments.Remove(appId); _ = System.Threading.Tasks.Task.Run(() => _db.DeleteAppointmentAsync(appId)); 
+                }
                 _patients.Remove(id); _patientBST.Delete(p.FirstName, p.LastName); _patientAVL.Delete(p.FirstName, p.LastName);
-                _db.DeletePatient(id); if (id == _patientIdCounter) _patientIdCounter--;
+                _patientTrie.Remove(p); // Phase 2
+                _lruCache.RemovePatient(id); // Phase 2
+                _ = System.Threading.Tasks.Task.Run(() => _db.DeletePatientAsync(id)); if (id == _patientIdCounter) _patientIdCounter--;
                 TxtUndoResult.Text = "✓ Hasta ve randevuları silindi.";
             }
         }
@@ -389,12 +404,15 @@ public partial class MainWindow : Window
         {
             int id = int.Parse(parts[1]);
             var d = _doctors.Get(id);
-            if (d != null) { d.Department?.Doctors.Remove(d); _doctors.Remove(id); _db.DeleteDoctor(id);
+            if (d != null) { d.Department?.Doctors.Remove(d); _doctors.Remove(id); _doctorGraph.RemoveDoctor(id); _ = System.Threading.Tasks.Task.Run(() => _db.DeleteDoctorAsync(id));
                 if (id == _doctorIdCounter) _doctorIdCounter--; TxtUndoResult.Text = "✓ Doktor silindi."; }
         }
         else if (parts[0] == "APPOINTMENT_ADD")
         {
-            int id = int.Parse(parts[1]); _appointments.Remove(id); _db.DeleteAppointment(id);
+            int id = int.Parse(parts[1]); 
+            var app = _appointments.Get(id);
+            if (app != null) _segmentTree.RemoveAppointment(app.Start);
+            _appointments.Remove(id); _ = System.Threading.Tasks.Task.Run(() => _db.DeleteAppointmentAsync(id));
             if (id == _appointmentIdCounter) _appointmentIdCounter--;
             TxtUndoResult.Text = "✓ Randevu silindi.";
         }
@@ -404,7 +422,7 @@ public partial class MainWindow : Window
             { _erQueue.RemovePatientById(erp.Patient.Id); TxtUndoResult.Text = "✓ Acil servis hastası silindi."; }
         }
 
-        TxtUndoResult.Foreground = new SolidColorBrush(Color.Parse("#3FB950"));
+        TxtUndoResult.Foreground = new SolidColorBrush(Color.Parse("#16A34A"));
         UpdateUndoPeek(); RefreshAllViews();
     }
 
@@ -423,11 +441,7 @@ public partial class MainWindow : Window
 
     private void RefreshPatientList() { DgPatients.ItemsSource = _patients.Values().OrderBy(p => p.Id).ToList(); }
 
-    private void RefreshDoctorList()
-    {
-        DgDoctors.ItemsSource = _doctors.Values().OrderBy(d => d.Id).Select(d => new
-        { d.Id, d.FirstName, d.LastName, DeptName = d.Department?.Name ?? "N/A", d.Phone }).ToList();
-    }
+    private void RefreshDoctorList() { /* Handled by DoctorViewModel */ }
 
     private void RefreshAppointmentList()
     {
@@ -439,7 +453,6 @@ public partial class MainWindow : Window
     private void RefreshDepartmentList()
     {
         _departmentList = _departments.Values().OrderBy(d => d.Name).ToList();
-        CbDoctorDepartment.ItemsSource = _departmentList.Select(d => d.Name).ToList();
         DgDepartments.ItemsSource = _departmentList;
     }
 
@@ -450,21 +463,21 @@ public partial class MainWindow : Window
             SolidColorBrush bgBrush, borderBrush, sevBrush;
             if (p.Severity >= 8)
             {
-                bgBrush = new SolidColorBrush(Color.Parse("#2D1518"));
-                borderBrush = new SolidColorBrush(Color.Parse("#F85149"));
-                sevBrush = new SolidColorBrush(Color.Parse("#F85149"));
+                bgBrush = new SolidColorBrush(Color.Parse("#FEF2F2"));
+                borderBrush = new SolidColorBrush(Color.Parse("#DC2626"));
+                sevBrush = new SolidColorBrush(Color.Parse("#DC2626"));
             }
             else if (p.Severity >= 5)
             {
-                bgBrush = new SolidColorBrush(Color.Parse("#2D2518"));
-                borderBrush = new SolidColorBrush(Color.Parse("#D29922"));
-                sevBrush = new SolidColorBrush(Color.Parse("#D29922"));
+                bgBrush = new SolidColorBrush(Color.Parse("#FFFBEB"));
+                borderBrush = new SolidColorBrush(Color.Parse("#D97706"));
+                sevBrush = new SolidColorBrush(Color.Parse("#D97706"));
             }
             else
             {
-                bgBrush = new SolidColorBrush(Color.Parse("#152D18"));
-                borderBrush = new SolidColorBrush(Color.Parse("#3FB950"));
-                sevBrush = new SolidColorBrush(Color.Parse("#3FB950"));
+                bgBrush = new SolidColorBrush(Color.Parse("#F0FDF4"));
+                borderBrush = new SolidColorBrush(Color.Parse("#16A34A"));
+                sevBrush = new SolidColorBrush(Color.Parse("#16A34A"));
             }
             return new
             {
@@ -482,18 +495,15 @@ public partial class MainWindow : Window
 
     private void RefreshStats()
     {
-        TxtStatPatients.Text = _patients.Size.ToString();
-        TxtStatDoctors.Text = _doctors.Size.ToString();
-        TxtStatAppointments.Text = _appointments.Size.ToString();
-        TxtStatER.Text = _erQueue.Size.ToString();
-
+        // Summary stats now handled by StatsViewModel
+        // Only update the performance TextBlocks that remain in code-behind
         var s = _patientAVL.GetStats();
         TxtAVLStats.Text = $"Toplam: {s.totalNodes} | Yükseklik: {s.treeHeight} | Dengeli: {(s.isBalanced ? "✓" : "✗")}";
         TxtHashStats.Text = $"Hasta: {_patients.Size}/{_patients.Capacity} | Doktor: {_doctors.Size}/{_doctors.Capacity} | Randevu: {_appointments.Size}/{_appointments.Capacity}";
     }
 
     private void RefreshAllViews() { RefreshPatientList(); RefreshDoctorList(); RefreshAppointmentList(); RefreshDepartmentList(); UpdateNotifications(); }
-    private void UpdateUndoPeek() { TxtUndoPeek.Text = _undoStack.PeekOperation() is string op ? $"Sıradaki: {op}" : "Stack boş."; }
+    private void UpdateUndoPeek() { TxtUndoPeek.Text = _undoStack.PeekOperation() is string op ? $"Sıradaki: {op}" : "Geri alınacak işlem yok."; }
     private void ShowMsg(string msg) { SetStatus("⚠ " + msg); }
     private void SetStatus(string msg) { TxtStatusBar.Text = msg; }
     private void ShowValidation(TextBlock tb, string msg) { tb.Text = "⚠ " + msg; SetStatus("⚠ " + msg); }
@@ -506,6 +516,9 @@ public partial class MainWindow : Window
         int id = pSel.Id;
         var p = _patients.Get(id);
         if (p == null) return;
+
+        // Phase 2: Add patient to LRU Cache on view
+        _lruCache.AccessPatient(p);
 
         TxtProfileName.Text = $"{p.FullName} (ID: {p.Id})";
         TxtProfileDetails.Text = $"TC: {p.NationalId} | Telefon: {p.Phone} | Doğum: {p.BirthDate:dd/MM/yyyy}";
@@ -561,10 +574,10 @@ public partial class MainWindow : Window
                     Icon = "🔴",
                     TimeSlot = $"{h:00}:00-{h+1:00}:00",
                     StatusText = $"Dolu — {conflict.Patient.FullName}",
-                    BgBrush = (IBrush)new SolidColorBrush(Color.Parse("#2D1518")),
-                    BorderBrush = (IBrush)new SolidColorBrush(Color.Parse("#F85149")),
+                    BgBrush = (IBrush)new SolidColorBrush(Color.Parse("#FEF2F2")),
+                    BorderBrush = (IBrush)new SolidColorBrush(Color.Parse("#DC2626")),
                     BarWidth = maxBarWidth * fillRatio,
-                    BarBrush = (IBrush)new SolidColorBrush(Color.Parse("#F85149"))
+                    BarBrush = (IBrush)new SolidColorBrush(Color.Parse("#DC2626"))
                 });
             }
             else if (isSoon)
@@ -574,10 +587,10 @@ public partial class MainWindow : Window
                     Icon = "🟡",
                     TimeSlot = $"{h:00}:00-{h+1:00}:00",
                     StatusText = "Yaklaşan randevu",
-                    BgBrush = (IBrush)new SolidColorBrush(Color.Parse("#2D2518")),
-                    BorderBrush = (IBrush)new SolidColorBrush(Color.Parse("#D29922")),
+                    BgBrush = (IBrush)new SolidColorBrush(Color.Parse("#FFFBEB")),
+                    BorderBrush = (IBrush)new SolidColorBrush(Color.Parse("#D97706")),
                     BarWidth = maxBarWidth * 0.3,
-                    BarBrush = (IBrush)new SolidColorBrush(Color.Parse("#D29922"))
+                    BarBrush = (IBrush)new SolidColorBrush(Color.Parse("#D97706"))
                 });
             }
             else
@@ -587,10 +600,10 @@ public partial class MainWindow : Window
                     Icon = "🟢",
                     TimeSlot = $"{h:00}:00-{h+1:00}:00",
                     StatusText = "Müsait",
-                    BgBrush = (IBrush)new SolidColorBrush(Color.Parse("#152D18")),
-                    BorderBrush = (IBrush)new SolidColorBrush(Color.Parse("#3FB950")),
+                    BgBrush = (IBrush)new SolidColorBrush(Color.Parse("#F0FDF4")),
+                    BorderBrush = (IBrush)new SolidColorBrush(Color.Parse("#16A34A")),
                     BarWidth = maxBarWidth * 1.0,
-                    BarBrush = (IBrush)new SolidColorBrush(Color.Parse("#3FB950"))
+                    BarBrush = (IBrush)new SolidColorBrush(Color.Parse("#16A34A"))
                 });
             }
         }
@@ -603,20 +616,20 @@ public partial class MainWindow : Window
     {
         AppTableView.IsVisible = true;
         AppCalendarView.IsVisible = false;
-        BtnViewTable.Background = new SolidColorBrush(Color.Parse("#58A6FF"));
+        BtnViewTable.Background = new SolidColorBrush(Color.Parse("#2563EB"));
         BtnViewTable.Foreground = new SolidColorBrush(Colors.White);
-        BtnViewCalendar.Background = new SolidColorBrush(Color.Parse("#1C2128"));
-        BtnViewCalendar.Foreground = new SolidColorBrush(Color.Parse("#8B949E"));
+        BtnViewCalendar.Background = new SolidColorBrush(Color.Parse("#F9FAFB"));
+        BtnViewCalendar.Foreground = new SolidColorBrush(Color.Parse("#4B5563"));
     }
 
     private void SwitchToCalendarView_Click(object? sender, RoutedEventArgs e)
     {
         AppTableView.IsVisible = false;
         AppCalendarView.IsVisible = true;
-        BtnViewCalendar.Background = new SolidColorBrush(Color.Parse("#58A6FF"));
+        BtnViewCalendar.Background = new SolidColorBrush(Color.Parse("#2563EB"));
         BtnViewCalendar.Foreground = new SolidColorBrush(Colors.White);
-        BtnViewTable.Background = new SolidColorBrush(Color.Parse("#1C2128"));
-        BtnViewTable.Foreground = new SolidColorBrush(Color.Parse("#8B949E"));
+        BtnViewTable.Background = new SolidColorBrush(Color.Parse("#F9FAFB"));
+        BtnViewTable.Foreground = new SolidColorBrush(Color.Parse("#4B5563"));
         BuildCalendarGrid();
     }
 
@@ -640,7 +653,7 @@ public partial class MainWindow : Window
 
         // 8 columns: time label + 7 days
         // 10 rows: header + 09:00-17:00 (9 slots)
-        var grid = new Grid { Background = new SolidColorBrush(Color.Parse("#0D1117")) };
+        var grid = new Grid { Background = new SolidColorBrush(Color.Parse("#F3F4F6")) };
 
         for (int c = 0; c < 8; c++)
             grid.ColumnDefinitions.Add(new ColumnDefinition(c == 0
@@ -657,8 +670,8 @@ public partial class MainWindow : Window
         // Time column header
         var timeHeader = new Border
         {
-            Background = new SolidColorBrush(Color.Parse("#161B22")),
-            BorderBrush = new SolidColorBrush(Color.Parse("#30363D")),
+            Background = new SolidColorBrush(Color.Parse("#FFFFFF")),
+            BorderBrush = new SolidColorBrush(Color.Parse("#E5E7EB")),
             BorderThickness = new Thickness(0, 0, 1, 1)
         };
         Grid.SetRow(timeHeader, 0); Grid.SetColumn(timeHeader, 0);
@@ -670,14 +683,14 @@ public partial class MainWindow : Window
             bool isToday = date.Date == DateTime.Today;
             var hdr = new Border
             {
-                Background = new SolidColorBrush(Color.Parse(isToday ? "#1C2F4A" : "#161B22")),
-                BorderBrush = new SolidColorBrush(Color.Parse("#30363D")),
+                Background = new SolidColorBrush(Color.Parse(isToday ? "#E0F2FE" : "#FFFFFF")),
+                BorderBrush = new SolidColorBrush(Color.Parse("#E5E7EB")),
                 BorderThickness = new Thickness(0, 0, 1, 1),
                 Child = new TextBlock
                 {
                     Text = $"{dayNames[d]}\n{date:dd/MM}",
                     FontSize = 11, FontWeight = FontWeight.SemiBold,
-                    Foreground = new SolidColorBrush(Color.Parse(isToday ? "#58A6FF" : "#8B949E")),
+                    Foreground = new SolidColorBrush(Color.Parse(isToday ? "#2563EB" : "#4B5563")),
                     TextAlignment = TextAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center,
                     HorizontalAlignment = HorizontalAlignment.Center
@@ -696,14 +709,14 @@ public partial class MainWindow : Window
             // Time label
             var timeLbl = new Border
             {
-                Background = new SolidColorBrush(Color.Parse("#161B22")),
-                BorderBrush = new SolidColorBrush(Color.Parse("#30363D")),
+                Background = new SolidColorBrush(Color.Parse("#FFFFFF")),
+                BorderBrush = new SolidColorBrush(Color.Parse("#E5E7EB")),
                 BorderThickness = new Thickness(0, 0, 1, 1),
                 Child = new TextBlock
                 {
                     Text = $"{hour:00}:00",
                     FontSize = 10,
-                    Foreground = new SolidColorBrush(Color.Parse("#8B949E")),
+                    Foreground = new SolidColorBrush(Color.Parse("#4B5563")),
                     VerticalAlignment = VerticalAlignment.Top,
                     HorizontalAlignment = HorizontalAlignment.Center,
                     Margin = new Thickness(0, 4, 0, 0)
@@ -725,14 +738,14 @@ public partial class MainWindow : Window
                     .OrderBy(a => a.Start).ToList();
 
                 Control cellContent;
-                string cellBg = isToday ? "#1C2128" : "#0D1117";
+                string cellBg = isToday ? "#F9FAFB" : "#F3F4F6";
 
                 if (cellApps.Count > 0)
                 {
                     var app = cellApps[0];
                     bool isDone = app.Status == "Completed";
-                    string appBg = isDone ? "#152D18" : "#1C2F4A";
-                    string appFg = isDone ? "#3FB950" : "#58A6FF";
+                    string appBg = isDone ? "#F0FDF4" : "#E0F2FE";
+                    string appFg = isDone ? "#16A34A" : "#2563EB";
                     string extraBadge = cellApps.Count > 1 ? $" +{cellApps.Count - 1}" : "";
 
                     var appBlock = new Border
@@ -756,7 +769,7 @@ public partial class MainWindow : Window
                                 {
                                     Text = app.Doctor.FullName,
                                     FontSize = 9,
-                                    Foreground = new SolidColorBrush(Color.Parse("#8B949E")),
+                                    Foreground = new SolidColorBrush(Color.Parse("#4B5563")),
                                     TextTrimming = TextTrimming.CharacterEllipsis
                                 }
                             }
@@ -772,7 +785,7 @@ public partial class MainWindow : Window
                 var cell = new Border
                 {
                     Background = new SolidColorBrush(Color.Parse(cellBg)),
-                    BorderBrush = new SolidColorBrush(Color.Parse("#21262D")),
+                    BorderBrush = new SolidColorBrush(Color.Parse("#FFFFFF")),
                     BorderThickness = new Thickness(0, 0, 1, 1),
                     Child = cellContent
                 };
@@ -785,7 +798,7 @@ public partial class MainWindow : Window
     }
 
     // ============ THEME TOGGLE ============
-    private bool _isDark = true;
+    private bool _isDark = false;
     private void ToggleTheme_Click(object? sender, RoutedEventArgs e)
     {
         _isDark = !_isDark;
@@ -794,21 +807,34 @@ public partial class MainWindow : Window
             Avalonia.Application.Current.RequestedThemeVariant =
                 _isDark ? Avalonia.Styling.ThemeVariant.Dark : Avalonia.Styling.ThemeVariant.Light;
         }
-        BtnThemeToggle.Content = _isDark ? "🌙  Koyu Tema" : "☀️  Açık Tema";
-        SetStatus(_isDark ? "Koyu tema aktif" : "Açık tema aktif");
+        BtnThemeToggle.Content = _isDark ? "☀️  Açık Tema" : "☀️  Açık Tema";
+        SetStatus(_isDark ? "Açık tema aktif" : "Açık tema aktif");
     }
 
     // ============ DASHBOARD ============
     private void RefreshDashboard()
     {
-        TxtDashPatients.Text = _patients.Size.ToString();
-        TxtDashDoctors.Text = _doctors.Size.ToString();
-        TxtDashER.Text = _erQueue.Size.ToString();
-        var today = _appointments.Values().Where(a => a.Start.Date == DateTime.Today).ToList();
-        TxtDashTodayApps.Text = today.Count.ToString();
-        DgDashTodayApps.ItemsSource = today.OrderBy(a => a.Start).Select(a => new
-        { Time = a.Start.ToString("HH:mm"), PatientName = a.Patient.FullName,
-          DoctorName = a.Doctor.FullName, a.Status }).ToList();
+        // Dashboard panel uses DashboardViewModel via DataContext="{Binding Dashboard}"
+        if (DataContext is ViewModels.MainViewModel mvm)
+        {
+            mvm.Dashboard.TotalPatients = _patients.Size;
+            mvm.Dashboard.TotalDoctors = _doctors.Size;
+            mvm.Dashboard.EmergencyPatients = _erQueue.Size;
+            var today = _appointments.Values().Where(a => a.Start.Date == DateTime.Today).ToList();
+            mvm.Dashboard.TodayAppointments = today.Count;
+            mvm.Dashboard.TodayAppointmentList.Clear();
+            foreach (var a in today.OrderBy(x => x.Start)) mvm.Dashboard.TodayAppointmentList.Add(a);
+        }
+
+        // Phase 3: LRU Cache widget (x:Name="LbDashRecentPatients" still exists in XAML)
+        if (LbDashRecentPatients != null)
+        {
+            var recent = _lruCache.GetRecentPatients();
+            if (recent.Count > 0)
+                LbDashRecentPatients.ItemsSource = recent.Select((p, i) => $"{i + 1}. {p.FullName} (ID: {p.Id}, {DateTime.Today.Year - p.BirthDate.Year} yaş)").ToList();
+            else
+                LbDashRecentPatients.ItemsSource = new List<string> { "Henüz profil görüntülenmedi." };
+        }
     }
 
     // ============ SEARCH / FILTER ============
@@ -823,16 +849,8 @@ public partial class MainWindow : Window
                         p.Phone.Contains(q)).ToList();
     }
 
-    private void DoctorSearch_Changed(object? sender, TextChangedEventArgs e)
-    {
-        string q = TxtDoctorSearch.Text?.Trim().ToLowerInvariant() ?? "";
-        if (string.IsNullOrEmpty(q)) { RefreshDoctorList(); return; }
-        DgDoctors.ItemsSource = _doctors.Values()
-            .Where(d => d.FirstName.ToLowerInvariant().Contains(q) ||
-                        d.LastName.ToLowerInvariant().Contains(q) ||
-                        (d.Department?.Name ?? "").ToLowerInvariant().Contains(q))
-            .Select(d => new { d.Id, d.FirstName, d.LastName, DeptName = d.Department?.Name ?? "N/A", d.Phone }).ToList();
-    }
+    // Doctor search is now handled by DoctorViewModel
+
 
     // ============ DELETE / EDIT ============
     private void DeletePatient_Click(object? sender, RoutedEventArgs e)
@@ -848,10 +866,15 @@ public partial class MainWindow : Window
         _pendingDeleteAction = () =>
         {
             foreach (int appId in _appointments.Values().Where(a => a.Patient.Id == id).Select(a => a.Id).ToList())
-            { _appointments.Remove(appId); _db.DeleteAppointment(appId); }
+            { 
+               var app = _appointments.Get(appId);
+               if (app != null) _segmentTree.RemoveAppointment(app.Start);
+               _appointments.Remove(appId); _ = System.Threading.Tasks.Task.Run(() => _db.DeleteAppointmentAsync(appId)); 
+            }
 
             _patients.Remove(id); _patientBST.Delete(p.FirstName, p.LastName); _patientAVL.Delete(p.FirstName, p.LastName);
-            _db.DeletePatient(id);
+            _patientTrie.Remove(p); _lruCache.RemovePatient(id);
+            _ = System.Threading.Tasks.Task.Run(() => _db.DeletePatientAsync(id));
             RefreshAllViews();
             SetStatus($"✓ Hasta silindi: {p.FullName}");
         };
@@ -879,25 +902,8 @@ public partial class MainWindow : Window
         SetStatus($"✏️ Düzenleniyor: {p.FullName} — Değişiklikleri yapıp 'Güncelle' butonuna basın.");
     }
 
-    private void DeleteDoctor_Click(object? sender, RoutedEventArgs e)
-    {
-        if (DgDoctors.SelectedItem == null) { ShowMsg("Silmek için bir doktor seçin!"); return; }
-        dynamic sel = DgDoctors.SelectedItem;
-        int id = (int)sel.Id;
-        var d = _doctors.Get(id);
-        if (d == null) return;
+    // DeleteDoctor is now handled by DoctorViewModel
 
-        // Fix 5: Confirmation dialog
-        TxtDeleteConfirmMsg.Text = $"⚠️ '{d.FullName}' (ID: {id}) doktoru silmek istediğinize emin misiniz?";
-        _pendingDeleteAction = () =>
-        {
-            d.Department?.Doctors.Remove(d);
-            _doctors.Remove(id); _db.DeleteDoctor(id);
-            RefreshDoctorList(); RefreshDepartmentList();
-            SetStatus($"✓ Doktor silindi: {d.FullName}");
-        };
-        PanelDeleteConfirm.IsVisible = true;
-    }
 
     // Fix 5: Confirmation handlers
     private void ConfirmDelete_Click(object? sender, RoutedEventArgs e)
@@ -915,114 +921,128 @@ public partial class MainWindow : Window
     }
 
     // ============ SAMPLE DATA ============
-    private void LoadSampleData()
+    private async Task LoadSampleDataAsync()
     {
-        if (_db.LoadDepartments().Count > 0) return;
+        var depts = await _db.LoadDepartmentsAsync();
+        if (depts.Count > 0) return;
 
         var c = new Department(++_departmentIdCounter, "Cardiology", 5);
-        _departments.Put(_departmentIdCounter, c); _hospitalTree.AddDepartmentToRoot(c); _db.SaveDepartment(c);
+        _departments.Put(_departmentIdCounter, c); _hospitalTree.AddDepartmentToRoot(c); await _db.SaveDepartmentAsync(c);
         var n = new Department(++_departmentIdCounter, "Neurology", 4);
-        _departments.Put(_departmentIdCounter, n); _hospitalTree.AddDepartmentToRoot(n); _db.SaveDepartment(n);
+        _departments.Put(_departmentIdCounter, n); _hospitalTree.AddDepartmentToRoot(n); await _db.SaveDepartmentAsync(n);
         var em = new Department(++_departmentIdCounter, "Emergency Medicine", 8);
-        _departments.Put(_departmentIdCounter, em); _hospitalTree.AddDepartmentToRoot(em); _db.SaveDepartment(em);
+        _departments.Put(_departmentIdCounter, em); _hospitalTree.AddDepartmentToRoot(em); await _db.SaveDepartmentAsync(em);
 
         var d1 = new Doctor(++_doctorIdCounter, "Mehmet", "Yilmaz", c, "0532-111-2233");
-        c.AddDoctor(d1); _doctors.Put(_doctorIdCounter, d1); _db.SaveDoctor(d1);
+        c.AddDoctor(d1); _doctors.Put(_doctorIdCounter, d1); await _db.SaveDoctorAsync(d1);
         var d2 = new Doctor(++_doctorIdCounter, "Semih", "Arslan", em, "0535-444-5566");
-        em.AddDoctor(d2); _doctors.Put(_doctorIdCounter, d2); _db.SaveDoctor(d2);
+        em.AddDoctor(d2); _doctors.Put(_doctorIdCounter, d2); await _db.SaveDoctorAsync(d2);
 
         var p1 = new Patient(++_patientIdCounter, "Ahmet", "Oz", "12345678901", "0535-444-5566", new DateTime(1985, 5, 15));
-        _patients.Put(_patientIdCounter, p1); _patientBST.Insert(p1); _patientAVL.Insert(p1); _db.SavePatient(p1);
+        _patients.Put(_patientIdCounter, p1); _patientBST.Insert(p1); _patientAVL.Insert(p1); await _db.SavePatientAsync(p1);
         p1.AddVisit(new DateTime(2024, 10, 15, 10, 30, 0), d1, "Annual checkup");
-        _db.SaveVisit(p1.Id, d1.Id, new DateTime(2024, 10, 15, 10, 30, 0), "Annual checkup");
+        await _db.SaveVisitAsync(p1.Id, d1.Id, new DateTime(2024, 10, 15, 10, 30, 0), "Annual checkup");
     }
 
-    private void LoadFromDatabase()
+    private async Task LoadFromDatabaseAsync()
     {
         if (_departments.Size > 0) return;
 
-        foreach (var (id, name, cap) in _db.LoadDepartments())
+        foreach (var (id, name, cap) in await _db.LoadDepartmentsAsync())
         { var d = new Department(id, name, cap); _departments.Put(id, d); _hospitalTree.AddDepartmentToRoot(d);
           if (id > _departmentIdCounter) _departmentIdCounter = id; }
 
-        foreach (var (id, fn, ln, did, phone) in _db.LoadDoctors())
+        foreach (var (id, fn, ln, did, phone) in await _db.LoadDoctorsAsync())
         { var dept = _departments.Get(did); var doc = new Doctor(id, fn, ln, dept, phone);
-          dept?.AddDoctor(doc); _doctors.Put(id, doc);
+          dept?.AddDoctor(doc); _doctors.Put(id, doc); _doctorGraph.AddDoctor(doc);
           if (id > _doctorIdCounter) _doctorIdCounter = id; }
 
-        foreach (var (id, fn, ln, nid, phone, bd) in _db.LoadPatients())
+        foreach (var (id, fn, ln, nid, phone, bd) in await _db.LoadPatientsAsync())
         { var p = new Patient(id, fn, ln, nid, phone, DateTime.Parse(bd));
-          _patients.Put(id, p); _patientBST.Insert(p); _patientAVL.Insert(p);
+          _patients.Put(id, p); _patientBST.Insert(p); _patientAVL.Insert(p); _patientTrie.Insert(p);
           if (id > _patientIdCounter) _patientIdCounter = id; }
 
-        foreach (var (pid, did, vd, notes) in _db.LoadVisits())
+        foreach (var (pid, did, vd, notes) in await _db.LoadVisitsAsync())
         { var p = _patients.Get(pid); var d = _doctors.Get(did);
           if (p != null && d != null) p.AddVisit(DateTime.Parse(vd), d, notes); }
 
-        foreach (var (id, pid, did, start, end, status) in _db.LoadAppointments())
+        foreach (var (id, pid, did, start, end, status) in await _db.LoadAppointmentsAsync())
         { var p = _patients.Get(pid); var d = _doctors.Get(did);
           if (p != null && d != null) { var app = new Appointment(id, p, d, DateTime.Parse(start));
             app.Status = status; _appointments.Put(id, app); d.DailyQueue.Enqueue(app);
+            _segmentTree.AddAppointment(app.Start);
             if (id > _appointmentIdCounter) _appointmentIdCounter = id; } }
+
+        // Phase 2: Create a random referral network for testing if doctors exist
+        var docs = _doctors.Values();
+        if (docs.Count >= 2)
+        {
+            _doctorGraph.AddReferral(docs[0], docs[1]);
+            if (docs.Count >= 3) _doctorGraph.AddReferral(docs[1], docs[2]);
+            if (docs.Count >= 4) {
+                _doctorGraph.AddReferral(docs[0], docs[3]);
+                _doctorGraph.AddReferral(docs[3], docs[2]);
+            }
+        }
+
+        RefreshPatientList(); RefreshDoctorList(); RefreshDepartmentList(); RefreshAppointmentList(); UpdateDashboard();
+
+    }
+
+    private void UpdateDashboard()
+    {
+        // Now handled by ViewModel
     }
 
     // ============ REPORT EXPORT ============
-    private void ExportPatientReport_Click(object? sender, RoutedEventArgs e)
+    private void ExportPatientPdf_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
-            var html = "<!DOCTYPE html><html><head><meta charset='utf-8'/><title>Hasta Raporu</title>" +
-                "<style>body{font-family:Inter,sans-serif;background:#0D1117;color:#E6EDF3;padding:40px}" +
-                "h1{color:#58A6FF}table{width:100%;border-collapse:collapse;margin-top:20px}" +
-                "th{background:#21262D;color:#58A6FF;padding:12px;text-align:left;border-bottom:2px solid #30363D}" +
-                "td{padding:10px;border-bottom:1px solid #30363D}" +
-                "tr:hover{background:#1C2128}.footer{margin-top:30px;color:#8B949E;font-size:12px}</style></head><body>" +
-                $"<h1>🏥 Hasta Raporu</h1><p>Toplam: {_patients.Size} hasta | Tarih: {DateTime.Now:dd/MM/yyyy HH:mm}</p><table>" +
-                "<tr><th>ID</th><th>Ad</th><th>Soyad</th><th>TC</th><th>Telefon</th></tr>";
-
-            foreach (var p in _patients.Values())
-                html += $"<tr><td>{p.Id}</td><td>{p.FirstName}</td><td>{p.LastName}</td><td>{p.NationalId}</td><td>{p.Phone}</td></tr>";
-
-            html += "</table><p class='footer'>Student ID: 230316064 | Hastane Yönetim Sistemi</p></body></html>";
-
-            var path = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "hasta_raporu.html");
-            System.IO.File.WriteAllText(path, html);
-            TxtReportStatus.Text = $"✓ Rapor kaydedildi: {path}";
-            SetStatus($"✓ Hasta raporu: {path}");
+            var path = Services.ReportService.ExportPatientsPdf(_patients.Values());
+            TxtReportStatus.Text = $"✓ PDF kaydedildi: {System.IO.Path.GetFileName(path)}";
+            SetStatus($"✓ Hasta PDF raporu: {path}");
         }
-        catch (Exception ex) { ShowMsg(ex.Message); }
+        catch (Exception ex) { TxtReportStatus.Text = $"✗ Hata: {ex.Message}"; }
     }
 
-    private void ExportAppointmentReport_Click(object? sender, RoutedEventArgs e)
+    private void ExportAppointmentPdf_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
-            var html = "<!DOCTYPE html><html><head><meta charset='utf-8'/><title>Randevu Raporu</title>" +
-                "<style>body{font-family:Inter,sans-serif;background:#0D1117;color:#E6EDF3;padding:40px}" +
-                "h1{color:#3FB950}table{width:100%;border-collapse:collapse;margin-top:20px}" +
-                "th{background:#21262D;color:#3FB950;padding:12px;text-align:left;border-bottom:2px solid #30363D}" +
-                "td{padding:10px;border-bottom:1px solid #30363D}" +
-                "tr:hover{background:#1C2128}.completed{color:#3FB950}.pending{color:#D29922}" +
-                ".footer{margin-top:30px;color:#8B949E;font-size:12px}</style></head><body>" +
-                $"<h1>📋 Randevu Raporu</h1><p>Toplam: {_appointments.Size} | Tarih: {DateTime.Now:dd/MM/yyyy HH:mm}</p><table>" +
-                "<tr><th>ID</th><th>Hasta</th><th>Doktor</th><th>Tarih</th><th>Durum</th></tr>";
-
-            foreach (var a in _appointments.Values().OrderBy(a => a.Start))
-            {
-                var cls = a.Status == "Completed" ? "completed" : "pending";
-                html += $"<tr><td>{a.Id}</td><td>{a.Patient.FullName}</td><td>{a.Doctor.FullName}</td>" +
-                        $"<td>{a.Start:dd/MM/yyyy HH:mm}</td><td class='{cls}'>{a.Status}</td></tr>";
-            }
-
-            html += "</table><p class='footer'>Student ID: 230316064 | Hastane Yönetim Sistemi</p></body></html>";
-
-            var path = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "randevu_raporu.html");
-            System.IO.File.WriteAllText(path, html);
-            TxtReportStatus.Text = $"✓ Rapor kaydedildi: {path}";
-            SetStatus($"✓ Randevu raporu: {path}");
+            var path = Services.ReportService.ExportAppointmentsPdf(_appointments.Values());
+            TxtReportStatus.Text = $"✓ PDF kaydedildi: {System.IO.Path.GetFileName(path)}";
+            SetStatus($"✓ Randevu PDF raporu: {path}");
         }
-        catch (Exception ex) { ShowMsg(ex.Message); }
+        catch (Exception ex) { TxtReportStatus.Text = $"✗ Hata: {ex.Message}"; }
     }
+
+    private void ExportPatientsExcel_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var path = Services.ReportService.ExportPatientsExcel(_patients.Values());
+            TxtReportStatus.Text = $"✓ Excel kaydedildi: {System.IO.Path.GetFileName(path)}";
+            SetStatus($"✓ Hasta Excel listesi: {path}");
+        }
+        catch (Exception ex) { TxtReportStatus.Text = $"✗ Hata: {ex.Message}"; }
+    }
+
+    private void ExportAppointmentsExcel_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var path = Services.ReportService.ExportAppointmentsExcel(_appointments.Values());
+            TxtReportStatus.Text = $"✓ Excel kaydedildi: {System.IO.Path.GetFileName(path)}";
+            SetStatus($"✓ Randevu Excel listesi: {path}");
+        }
+        catch (Exception ex) { TxtReportStatus.Text = $"✗ Hata: {ex.Message}"; }
+    }
+
+    // Legacy HTML handlers (kept for backward compat — buttons removed from XAML)
+    private void ExportPatientReport_Click(object? sender, RoutedEventArgs e) => ExportPatientPdf_Click(sender, e);
+    private void ExportAppointmentReport_Click(object? sender, RoutedEventArgs e) => ExportAppointmentPdf_Click(sender, e);
+
 
     // ============ NOTIFICATIONS ============
     private void UpdateNotifications()
@@ -1032,6 +1052,8 @@ public partial class MainWindow : Window
         int count = soon.Count + _erQueue.Size;
         TxtNotifBadge.Text = $"🔔 {count}";
     }
+
+
 
     // ============ ROLE SYSTEM ============
     private void RoleChanged(object? sender, SelectionChangedEventArgs e)
@@ -1053,8 +1075,6 @@ public partial class MainWindow : Window
         BtnRegisterPatient.IsEnabled = isAdmin || isDoctor;
         BtnEditPatient.IsEnabled = isAdmin || isDoctor;
         BtnDeletePatient.IsEnabled = isAdmin;
-        BtnRegisterDoctor.IsEnabled = isAdmin;
-        BtnDeleteDoctor.IsEnabled = isAdmin;
         BtnCreateAppointment.IsEnabled = isAdmin || isDoctor;
         BtnExaminePatient.IsEnabled = isAdmin || isDoctor;
         BtnAddER.IsEnabled = isAdmin || isDoctor;

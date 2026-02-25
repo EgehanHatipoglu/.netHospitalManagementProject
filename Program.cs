@@ -1,7 +1,7 @@
 using System;
 using Avalonia;
 
-namespace HospitalManagementWPF;
+namespace HospitalManagementAvolonia;
 
 class Program
 {
