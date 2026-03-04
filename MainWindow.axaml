@@ -369,7 +369,7 @@
                                     <TextBox Text="{Binding SearchQuery}" Width="250" Watermark="🔍 Doktor ara..."/>
                                     <Button Content="🗑️ Sil" Command="{Binding DeleteDoctorCommand}" Background="{StaticResource AccentRedBrush}" Foreground="White" Padding="12,6" CornerRadius="6"/>
                                 </StackPanel>
-                                <DataGrid ItemsSource="{Binding Doctors.PagedItems}" SelectedItem="{Binding SelectedDoctor}" MaxHeight="300" IsReadOnly="True" AutoGenerateColumns="False"
+                                <DataGrid ItemsSource="{Binding Pagination.PagedItems}" SelectedItem="{Binding SelectedDoctor}" MaxHeight="300" IsReadOnly="True" AutoGenerateColumns="False"
                                           GridLinesVisibility="Horizontal" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                           SelectionMode="Single" CanUserSortColumns="False">
                                     <DataGrid.Columns>
@@ -694,7 +694,7 @@
                     </StackPanel>
 
                     <!-- ===== UNDO PANEL ===== -->
-                    <StackPanel x:Name="PanelUndo" IsVisible="False" DataContext="{Binding}">
+                    <StackPanel x:Name="PanelUndo" IsVisible="False" DataContext="{Binding Undo}">
                         <TextBlock Text="↩️ Geri Al" FontSize="22" FontWeight="Bold"
                                    Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,16"/>
 
@@ -702,13 +702,80 @@
                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
                             <StackPanel Spacing="12">
                                 <StackPanel Orientation="Horizontal" Spacing="16">
-                                    <Button Content="↩️ Son İşlemi Geri Al" Command="{Binding UndoCommand}"
+                                    <Button Content="↩️ Son İşlemi Geri Al" Command="{Binding UndoOperationCommand}"
                                             Background="{StaticResource AccentRedBrush}" Foreground="White" FontSize="15"
                                             FontWeight="Bold" Padding="24,12" CornerRadius="6"/>
-                                    <TextBlock Text="{Binding UndoPeekMessage}" Foreground="{DynamicResource TextSecondaryBrush}"
+                                    <TextBlock Text="{Binding UndoPeek}" Foreground="{DynamicResource TextSecondaryBrush}"
                                                VerticalAlignment="Center" FontSize="13"/>
                                 </StackPanel>
-                                <TextBlock Text="{Binding UndoResultMessage}" Foreground="{StaticResource AccentGreenBrush}" FontSize="14" TextWrapping="Wrap"/>
+                                <TextBlock Text="{Binding UndoResult}" Foreground="{StaticResource AccentGreenBrush}" FontSize="14" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- ===== BILLING PANEL ===== -->
+                    <StackPanel x:Name="PanelBilling" IsVisible="False" DataContext="{Binding Billing}">
+                        <TextBlock Text="🧾 Fatura ve Ödeme" FontSize="22" FontWeight="Bold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,20"/>
+
+                        <!-- Summary Cards -->
+                        <WrapPanel Margin="0,0,0,16">
+                            <Border Background="{DynamicResource CardBgBrush}" CornerRadius="8" Padding="20" Margin="0,0,12,12" Width="200" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="Toplam Gelir" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
+                                    <TextBlock Text="{Binding TotalRevenue, StringFormat='₺{0:N2}'}" FontSize="28" FontWeight="Bold" Foreground="{StaticResource AccentGreenBrush}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Background="{DynamicResource CardBgBrush}" CornerRadius="8" Padding="20" Margin="0,0,12,12" Width="200" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="Bekleyen Fatura" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
+                                    <TextBlock Text="{Binding PendingCount}" FontSize="28" FontWeight="Bold" Foreground="{StaticResource AccentOrangeBrush}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Background="{DynamicResource CardBgBrush}" CornerRadius="8" Padding="20" Margin="0,0,12,12" Width="200" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="Ödenen Fatura" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
+                                    <TextBlock Text="{Binding PaidCount}" FontSize="28" FontWeight="Bold" Foreground="{StaticResource AccentBlueBrush}"/>
+                                </StackPanel>
+                            </Border>
+                        </WrapPanel>
+
+                        <!-- Yeni Fatura Formu -->
+                        <Border Background="{DynamicResource CardBgBrush}" CornerRadius="8" Padding="20" Margin="0,0,0,16" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="➕ Yeni Fatura Oluştur" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <Grid ColumnDefinitions="100,12,*,12,*,12,100,12,100,12,Auto" RowDefinitions="Auto">
+                                    <TextBox Grid.Column="0" Text="{Binding AppointmentId}" Watermark="Randevu ID"/>
+                                    <TextBox Grid.Column="2" Text="{Binding PatientName}" Watermark="Hasta Adı"/>
+                                    <TextBox Grid.Column="4" Text="{Binding DoctorName}" Watermark="Doktor Adı"/>
+                                    <TextBox Grid.Column="6" Text="{Binding BaseAmount}" Watermark="Tutar (₺)"/>
+                                    <TextBox Grid.Column="8" Text="{Binding InsuranceCoveragePercent}" Watermark="Sigorta (%)"/>
+                                    <Button Grid.Column="10" Content="Fatura Kes" Command="{Binding CreateInvoiceCommand}"
+                                            Background="{StaticResource AccentBlueBrush}" Foreground="White" Padding="16,8" CornerRadius="6"/>
+                                </Grid>
+                                <TextBlock Text="{Binding ValidationMessage}" FontSize="12" Foreground="{StaticResource AccentRedBrush}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Faturalar Tablosu -->
+                        <Border Background="{DynamicResource CardBgBrush}" CornerRadius="8" Padding="20" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                            <StackPanel Spacing="8">
+                                <StackPanel Orientation="Horizontal" Spacing="12">
+                                    <TextBlock Text="📜 Fatura Listesi" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                    <Button Content="Ödendi İşaretle" Command="{Binding MarkAsPaidCommand}" Background="{StaticResource AccentGreenBrush}" Foreground="White" Padding="12,6" CornerRadius="6"/>
+                                    <Button Content="İptal Et" Command="{Binding CancelInvoiceCommand}" Background="{StaticResource AccentRedBrush}" Foreground="White" Padding="12,6" CornerRadius="6"/>
+                                </StackPanel>
+                                <DataGrid ItemsSource="{Binding Invoices}" SelectedItem="{Binding SelectedInvoice}" MaxHeight="250" IsReadOnly="True" AutoGenerateColumns="False"
+                                          GridLinesVisibility="Horizontal" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" SelectionMode="Single">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Fatura No" Binding="{Binding Id}" Width="80"/>
+                                        <DataGridTextColumn Header="Tarih"     Binding="{Binding Date, StringFormat=\{0:dd/MM/yyyy\}}" Width="100"/>
+                                        <DataGridTextColumn Header="Hasta"     Binding="{Binding PatientName}" Width="*"/>
+                                        <DataGridTextColumn Header="Tutar"     Binding="{Binding BaseAmount, StringFormat='₺{0:N2}'}" Width="100"/>
+                                        <DataGridTextColumn Header="Ödenecek"  Binding="{Binding PatientPayment, StringFormat='₺{0:N2}'}" Width="100"/>
+                                        <DataGridTextColumn Header="Durum"     Binding="{Binding Status}" Width="100"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -852,7 +919,7 @@
                                             Background="{StaticResource AccentBlueBrush}" Foreground="White"
                                             Padding="16,8" CornerRadius="6"/>
                                 </Grid>
-                                <DataGrid ItemsSource="{Binding Drugs}" MaxHeight="220" IsReadOnly="True"
+                                <DataGrid ItemsSource="{Binding AvailableDrugs}" MaxHeight="220" IsReadOnly="True"
                                           AutoGenerateColumns="False" GridLinesVisibility="Horizontal"
                                           BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
                                     <DataGrid.Columns>
@@ -873,10 +940,10 @@
                                 <TextBlock Text="📋 Yeni Reçete Oluştur" FontSize="15" FontWeight="SemiBold"
                                            Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 <Grid ColumnDefinitions="80,8,*,16,80,8,*" RowDefinitions="Auto">
-                                    <TextBox Grid.Column="0" Text="{Binding RxPatientId}" Watermark="Hasta ID"/>
-                                    <TextBox Grid.Column="2" Text="{Binding RxPatientName}" Watermark="Hasta Adı Soyadı"/>
-                                    <TextBox Grid.Column="4" Text="{Binding RxDoctorId}" Watermark="Dr. ID"/>
-                                    <TextBox Grid.Column="6" Text="{Binding RxDoctorName}" Watermark="Doktor Adı Soyadı"/>
+                                    <TextBox Grid.Column="0" Text="{Binding PatientId}" Watermark="Hasta ID"/>
+                                    <TextBox Grid.Column="2" Text="{Binding PatientName}" Watermark="Hasta Adı Soyadı"/>
+                                    <TextBox Grid.Column="4" Text="{Binding DoctorId}" Watermark="Dr. ID"/>
+                                    <TextBox Grid.Column="6" Text="{Binding DoctorName}" Watermark="Doktor Adı Soyadı"/>
                                 </Grid>
                                 <Button Content="📋 Reçete Başlat" Command="{Binding StartPrescriptionCommand}"
                                         Background="{StaticResource AccentGreenBrush}" Foreground="White"
@@ -888,8 +955,8 @@
                                         <TextBlock Text="İlaç Ekle" FontSize="13" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource TextPrimaryBrush}"/>
                                         <Grid ColumnDefinitions="*,8,80,8,*,8,Auto">
-                                            <ComboBox Grid.Column="0" ItemsSource="{Binding Drugs}"
-                                                      SelectedItem="{Binding SelectedDrugForItem}"
+                                            <ComboBox Grid.Column="0" ItemsSource="{Binding AvailableDrugs}"
+                                                      SelectedItem="{Binding SelectedDrug}"
                                                       HorizontalAlignment="Stretch">
                                                 <ComboBox.ItemTemplate>
                                                     <DataTemplate>
@@ -897,9 +964,9 @@
                                                     </DataTemplate>
                                                 </ComboBox.ItemTemplate>
                                             </ComboBox>
-                                            <TextBox Grid.Column="2" Text="{Binding ItemQuantity}" Watermark="Miktar"/>
-                                            <TextBox Grid.Column="4" Text="{Binding ItemDosage}" Watermark="Kullanım (ör: Günde 2x1)"/>
-                                            <Button Grid.Column="6" Content="+ İlaç Ekle" Command="{Binding AddItemToRxCommand}"
+                                            <TextBox Grid.Column="2" Text="{Binding Quantity}" Watermark="Miktar"/>
+                                            <TextBox Grid.Column="4" Text="{Binding Dosage}" Watermark="Kullanım (ör: Günde 2x1)"/>
+                                            <Button Grid.Column="6" Content="+ İlaç Ekle" Command="{Binding AddDrugToCurrentPrescriptionCommand}"
                                                     Background="{StaticResource AccentOrangeBrush}" Foreground="White"
                                                     Padding="12,8" CornerRadius="6"/>
                                         </Grid>
@@ -919,7 +986,7 @@
                                     <Button Content="💾 Reçete Kaydet" Command="{Binding SavePrescriptionCommand}"
                                             Background="{StaticResource AccentBlueBrush}" Foreground="White"
                                             FontWeight="Bold" Padding="20,10" CornerRadius="6"/>
-                                    <TextBlock Text="{Binding StatusMessage}" FontSize="13"
+                                    <TextBlock Text="{Binding ValidationMessage}" FontSize="13"
                                                Foreground="{StaticResource AccentGreenBrush}"
                                                VerticalAlignment="Center"/>
                                 </StackPanel>
@@ -990,8 +1057,8 @@
                                 <Grid ColumnDefinitions="80,8,*,16,*,8,80,8,80,8,Auto">
                                     <TextBox Grid.Column="0" Text="{Binding ManualDoctorId}" Watermark="Dr. ID"/>
                                     <TextBox Grid.Column="2" Text="{Binding ManualDoctorName}" Watermark="Doktor Adı"/>
-                                    <ComboBox Grid.Column="4" ItemsSource="{Binding DayNames}"
-                                              SelectedIndex="{Binding SelectedDay}" HorizontalAlignment="Stretch"/>
+                                    <ComboBox Grid.Column="4" ItemsSource="{Binding ShiftDays}"
+                                              SelectedItem="{Binding SelectedDay}" HorizontalAlignment="Stretch"/>
                                     <TextBox Grid.Column="6" Text="{Binding StartHour}" Watermark="Başl."/>
                                     <TextBox Grid.Column="8" Text="{Binding EndHour}" Watermark="Bitiş"/>
                                     <Button Grid.Column="10" Content="+ Ekle" Command="{Binding AddShiftCommand}"

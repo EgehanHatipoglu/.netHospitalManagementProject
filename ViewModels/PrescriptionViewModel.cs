@@ -29,6 +29,12 @@ namespace HospitalManagementAvolonia.ViewModels
         [ObservableProperty] private string _patientName = "";
         [ObservableProperty] private string _doctorName = "";
 
+        // --- Yeni İlaç Alanları ---
+        [ObservableProperty] private string _newDrugName = "";
+        [ObservableProperty] private string _newDrugUnit = "";
+        [ObservableProperty] private int _newDrugStock = 100;
+        [ObservableProperty] private int _newDrugThreshold = 10;
+
         // --- İlaç Ekleme Alanları ---
         [ObservableProperty] private Drug? _selectedDrug;
         [ObservableProperty] private int _quantity = 1;
@@ -90,6 +96,38 @@ namespace HospitalManagementAvolonia.ViewModels
         {
             var d = await _doctorService.GetDoctorByIdAsync(id);
             DoctorName = d?.FullName ?? "Doktor bulunamadı";
+        }
+
+        [RelayCommand]
+        public async Task AddDrugAsync()
+        {
+            if (string.IsNullOrWhiteSpace(NewDrugName) || string.IsNullOrWhiteSpace(NewDrugUnit))
+            {
+                ValidationMessage = "⚠ İlaç adı ve birimi zorunludur.";
+                return;
+            }
+
+            var md = new Drug(0, NewDrugName, NewDrugUnit, NewDrugStock, NewDrugThreshold);
+            await _db.SaveDrugAsync(md);
+            
+            NewDrugName = "";
+            NewDrugUnit = "";
+            NewDrugStock = 100;
+            NewDrugThreshold = 10;
+            
+            await RefreshDataAsync();
+            ToastService.Instance.Success($"✓ {md.Name} kataloga eklendi.");
+        }
+
+        [RelayCommand]
+        public void StartPrescription()
+        {
+            CurrentItems.Clear();
+            PatientId = null;
+            PatientName = "";
+            DoctorId = null;
+            DoctorName = "";
+            ValidationMessage = "Yeni reçete başlatıldı.";
         }
 
         [RelayCommand]

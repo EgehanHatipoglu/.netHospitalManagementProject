@@ -20,15 +20,23 @@ namespace HospitalManagementAvolonia.ViewModels
 
         // Günler için ComboBox kaynağı
         public Array ShiftDays { get; } = Enum.GetValues(typeof(ShiftDay));
+        public ObservableCollection<object> WeeklyGroups { get; } = new();
 
         // --- Yeni Vardiya Alanları ---
         [ObservableProperty] private Doctor? _selectedDoctor;
         [ObservableProperty] private ShiftDay _selectedDay = ShiftDay.Pazartesi;
         [ObservableProperty] private int _startHour = 8;
         [ObservableProperty] private int _endHour = 16;
+        
+        [ObservableProperty] private int? _manualDoctorId;
+        [ObservableProperty] private string _manualDoctorName = "";
 
         [ObservableProperty] private DoctorShift? _selectedShift;
         [ObservableProperty] private string _validationMessage = "";
+        [ObservableProperty] private string _statusMessage = "";
+        
+        [ObservableProperty] private string _todayOnDutyText = "Bugün için kayıtlı nöbetçi yok.";
+        [ObservableProperty] private string _autoRotationStatus = "";
 
         // Saat seçenekleri (8-22)
         public ObservableCollection<int> HourOptions { get; } = new(
@@ -41,6 +49,35 @@ namespace HospitalManagementAvolonia.ViewModels
         {
             _db = db;
             _doctorService = ds;
+        }
+
+        partial void OnManualDoctorIdChanged(int? value)
+        {
+            if (value.HasValue)
+            {
+                _ = LookupDoctorNameAsync(value.Value);
+            }
+        }
+
+        private async Task LookupDoctorNameAsync(int id)
+        {
+            var d = await _doctorService.GetDoctorByIdAsync(id);
+            if (d != null)
+            {
+                ManualDoctorName = d.FullName;
+                SelectedDoctor = d;
+            }
+            else
+            {
+                ManualDoctorName = "Doktor bulunamadı";
+                SelectedDoctor = null;
+            }
+        }
+
+        [RelayCommand]
+        public void AutoGenerateRotation()
+        {
+            AutoRotationStatus = "Otomatik planlama özelliği hazırlanıyor...";
         }
 
         [RelayCommand]
@@ -61,21 +98,48 @@ namespace HospitalManagementAvolonia.ViewModels
                 Shifts.Add(new DoctorShift(id, docId, docName, (ShiftDay)day, startH, endH));
                 if (id > _shiftIdCounter) _shiftIdCounter = id;
             }
+
+            // Populate WeeklyGroups for UI
+            WeeklyGroups.Clear();
+            foreach (ShiftDay day in Enum.GetValues(typeof(ShiftDay)))
+            {
+                var dayShifts = Shifts.Where(s => s.Day == day).ToList();
+                var summary = dayShifts.Any() ? string.Join(", ", dayShifts.Select(s => $"{s.DoctorName} ({s.StartHour:00}:00-{s.EndHour:00}:00)")) : "Nöbetçi Yok";
+                WeeklyGroups.Add(new { DayName = day.ToString(), Summary = summary });
+            }
+
+            // Update TodayOnDutyText
+            var today = DateTime.Today.DayOfWeek;
+            ShiftDay mapping = today switch {
+                DayOfWeek.Monday => ShiftDay.Pazartesi,
+                DayOfWeek.Tuesday => ShiftDay.Salı,
+                DayOfWeek.Wednesday => ShiftDay.Çarşamba,
+                DayOfWeek.Thursday => ShiftDay.Perşembe,
+                DayOfWeek.Friday => ShiftDay.Cuma,
+                DayOfWeek.Saturday => ShiftDay.Cumartesi,
+                DayOfWeek.Sunday => ShiftDay.Pazar,
+                _ => ShiftDay.Pazartesi
+            };
+
+            var todayShifts = Shifts.Where(s => s.Day == mapping).ToList();
+            TodayOnDutyText = todayShifts.Any() 
+                ? string.Join("\n", todayShifts.Select(s => $"• {s.DoctorName} ({s.StartHour:00}:00-{s.EndHour:00}:00)")) 
+                : "Bugün için kayıtlı nöbetçi yok.";
         }
 
         [RelayCommand]
         public async Task AddShiftAsync()
         {
-            ValidationMessage = "";
+            StatusMessage = "";
 
             if (SelectedDoctor == null)
             {
-                ValidationMessage = "⚠ Doktor seçilmedi!";
+                StatusMessage = "⚠ Doktor seçilmedi!";
                 return;
             }
             if (StartHour >= EndHour)
             {
-                ValidationMessage = "⚠ Bitiş saati başlangıçtan sonra olmalı!";
+                StatusMessage = "⚠ Bitiş saati başlangıçtan sonra olmalı!";
                 return;
             }
 
@@ -84,7 +148,7 @@ namespace HospitalManagementAvolonia.ViewModels
             var conflict = Shifts.FirstOrDefault(s => s.ConflictsWith(newShift));
             if (conflict != null)
             {
-                ValidationMessage = $"⚠ Çakışma var: {conflict.Day} {conflict.StartHour:00}:00-{conflict.EndHour:00}:00";
+                StatusMessage = $"⚠ Çakışma var: {conflict.Day} {conflict.StartHour:00}:00-{conflict.EndHour:00}:00";
                 return;
             }
 
@@ -100,7 +164,12 @@ namespace HospitalManagementAvolonia.ViewModels
 
             await _db.SaveShiftAsync(shift);
             Shifts.Add(shift);
+            
+            ManualDoctorId = null;
+            ManualDoctorName = "";
+            SelectedDoctor = null;
 
+            await RefreshDataAsync();
             ToastService.Instance.Success($"✓ {shift.DoctorName} — {shift.Day} vardiyası eklendi.");
         }
 
@@ -109,7 +178,7 @@ namespace HospitalManagementAvolonia.ViewModels
         {
             if (SelectedShift == null)
             {
-                ValidationMessage = "⚠ Silmek için vardiya seçin!";
+                StatusMessage = "⚠ Silmek için vardiya seçin!";
                 return;
             }
 

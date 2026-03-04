@@ -115,10 +115,30 @@ namespace HospitalManagementAvolonia.ViewModels
                 case "Prescription": Prescriptions.RefreshDataCommand.Execute(null); break;
                 case "Billing":      Billing.RefreshDataCommand.Execute(null);       break;
                 case "Shifts":       Shifts.RefreshDataCommand.Execute(null);        break;
+                case "Undo":         Undo.RefreshDataCommand.Execute(null);          break;
             }
         }
 
         [RelayCommand]
         private void ToggleSidebar() => IsSidebarCollapsed = !IsSidebarCollapsed;
+
+        [RelayCommand]
+        private void ToggleTheme()
+        {
+            var app = Avalonia.Application.Current;
+            if (app != null)
+            {
+                if (app.RequestedThemeVariant == Avalonia.Styling.ThemeVariant.Dark)
+                {
+                    app.RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Light;
+                    ToastService.Instance.Info("Açık temaya geçildi.");
+                }
+                else
+                {
+                    app.RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark;
+                    ToastService.Instance.Info("Karanlık temaya geçildi.");
+                }
+            }
+        }
     }
 }
