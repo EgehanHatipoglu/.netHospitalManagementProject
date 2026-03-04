@@ -69,5 +69,15 @@ namespace HospitalManagementAvolonia.ViewModels
                 SelectedAppointment = null;
             }
         }
+
+        [RelayCommand]
+        public void CalculateDensity()
+        {
+            var start = (NewDate?.DateTime ?? DateTime.Today).Date;
+            var end = start.AddDays(7);
+            
+            int count = _appointmentService.GetAppointmentsCount(start, end);
+            ToastService.Instance.Info($"{start:dd/MM} - {end:dd/MM} arasında {count} randevu var (SegmentTree).");
+        }
     }
 }

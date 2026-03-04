@@ -24,15 +24,12 @@ public partial class App : Application
         ConfigureServices(services);
         Services = services.BuildServiceProvider();
 
-        // Initialize DB asynchronously without blocking UI thread fully.
         var db = Services.GetRequiredService<IDatabaseService>();
         _ = db.InitializeDatabaseAsync();
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var mainWindow = new MainWindow();
-            // We lazily fire and forget the async initialization, 
-            // the UI will render and load data when ready.
             _ = mainWindow.InitializeAsync();
             desktop.MainWindow = mainWindow;
         }
@@ -42,15 +39,19 @@ public partial class App : Application
 
     private void ConfigureServices(IServiceCollection services)
     {
-        // Database
+        // Database — Singleton: tek bir DB bağlantısı yeterli
         services.AddSingleton<IDatabaseService>(new DatabaseManager("hospital.db"));
 
-        // Business Services
+        // Business Services — Singleton: state tutuyorlar (cache/dictionary)
         services.AddSingleton<IPatientService, PatientService>();
         services.AddSingleton<IDoctorService, DoctorService>();
         services.AddSingleton<IAppointmentService, AppointmentService>();
+        services.AddSingleton<IDepartmentService, DepartmentService>();
+        services.AddSingleton<IEmergencyService, EmergencyService>();
+        services.AddSingleton<IUndoService, UndoService>();
 
-        // ViewModels
+        // MainViewModel — Transient: her seferinde taze instance
+        // ✅ IDatabaseService artık MainViewModel'e de inject ediliyor
         services.AddTransient<MainViewModel>();
     }
 }

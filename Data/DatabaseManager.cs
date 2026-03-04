@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
 using HospitalManagementAvolonia.Models;
+using HospitalManagementAvolonia.Helpers;
 
 namespace HospitalManagementAvolonia.Data
 {
@@ -20,6 +21,26 @@ namespace HospitalManagementAvolonia.Data
         }
 
         private SqliteConnection GetConnection() => new SqliteConnection(_connectionString);
+
+        private void AddSanitizedParameter(SqliteCommand cmd, string name, object value)
+        {
+            if (value is string stringValue)
+            {
+                if (name.IndexOf("phone", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    name.IndexOf("nid", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    cmd.Parameters.AddWithValue(name, InputSanitizer.SanitizeNumericString(stringValue));
+                }
+                else
+                {
+                    cmd.Parameters.AddWithValue(name, InputSanitizer.SanitizeForSql(stringValue));
+                }
+            }
+            else
+            {
+                cmd.Parameters.AddWithValue(name, value ?? DBNull.Value);
+            }
+        }
 
         public async Task InitializeDatabaseAsync()
         {
@@ -132,9 +153,9 @@ namespace HospitalManagementAvolonia.Data
             await conn.OpenAsync();
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = @"INSERT OR REPLACE INTO Departments (Id, Name, Capacity) VALUES (@id, @name, @cap)";
-            cmd.Parameters.AddWithValue("@id", dept.Id);
-            cmd.Parameters.AddWithValue("@name", dept.Name);
-            cmd.Parameters.AddWithValue("@cap", dept.Capacity);
+            AddSanitizedParameter(cmd, "@id", dept.Id);
+            AddSanitizedParameter(cmd, "@name", dept.Name);
+            AddSanitizedParameter(cmd, "@cap", dept.Capacity);
             await cmd.ExecuteNonQueryAsync();
         }
 
@@ -144,7 +165,7 @@ namespace HospitalManagementAvolonia.Data
             await using var conn = GetConnection();
             await conn.OpenAsync();
             await using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT Id, Name, Capacity FROM Departments";
+            cmd.CommandText = "SELECT Id, Name, Capacity FROM Departments ORDER BY Name";
             await using var reader = await cmd.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
@@ -163,12 +184,12 @@ namespace HospitalManagementAvolonia.Data
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = @"INSERT OR REPLACE INTO Patients (Id, FirstName, LastName, NationalId, Phone, BirthDate)
                                 VALUES (@id, @fn, @ln, @nid, @phone, @bd)";
-            cmd.Parameters.AddWithValue("@id", p.Id);
-            cmd.Parameters.AddWithValue("@fn", p.FirstName);
-            cmd.Parameters.AddWithValue("@ln", p.LastName);
-            cmd.Parameters.AddWithValue("@nid", p.NationalId);
-            cmd.Parameters.AddWithValue("@phone", p.Phone);
-            cmd.Parameters.AddWithValue("@bd", p.BirthDate.ToString("yyyy-MM-dd"));
+            AddSanitizedParameter(cmd, "@id", p.Id);
+            AddSanitizedParameter(cmd, "@fn", p.FirstName);
+            AddSanitizedParameter(cmd, "@ln", p.LastName);
+            AddSanitizedParameter(cmd, "@nid", p.NationalId);
+            AddSanitizedParameter(cmd, "@phone", p.Phone);
+            AddSanitizedParameter(cmd, "@bd", p.BirthDate.ToString("yyyy-MM-dd"));
             await cmd.ExecuteNonQueryAsync();
         }
 
@@ -178,7 +199,7 @@ namespace HospitalManagementAvolonia.Data
             await conn.OpenAsync();
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = "DELETE FROM Patients WHERE Id = @id";
-            cmd.Parameters.AddWithValue("@id", patientId);
+            AddSanitizedParameter(cmd, "@id", patientId);
             await cmd.ExecuteNonQueryAsync();
         }
 
@@ -214,11 +235,11 @@ namespace HospitalManagementAvolonia.Data
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = @"INSERT OR REPLACE INTO Doctors (Id, FirstName, LastName, DepartmentId, Phone)
                                 VALUES (@id, @fn, @ln, @did, @phone)";
-            cmd.Parameters.AddWithValue("@id", d.Id);
-            cmd.Parameters.AddWithValue("@fn", d.FirstName);
-            cmd.Parameters.AddWithValue("@ln", d.LastName);
-            cmd.Parameters.AddWithValue("@did", d.DepartmentId);
-            cmd.Parameters.AddWithValue("@phone", d.Phone);
+            AddSanitizedParameter(cmd, "@id", d.Id);
+            AddSanitizedParameter(cmd, "@fn", d.FirstName);
+            AddSanitizedParameter(cmd, "@ln", d.LastName);
+            AddSanitizedParameter(cmd, "@did", d.DepartmentId);
+            AddSanitizedParameter(cmd, "@phone", d.Phone);
             await cmd.ExecuteNonQueryAsync();
         }
 
@@ -228,7 +249,7 @@ namespace HospitalManagementAvolonia.Data
             await conn.OpenAsync();
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = "DELETE FROM Doctors WHERE Id = @id";
-            cmd.Parameters.AddWithValue("@id", doctorId);
+            AddSanitizedParameter(cmd, "@id", doctorId);
             await cmd.ExecuteNonQueryAsync();
         }
 
@@ -263,12 +284,12 @@ namespace HospitalManagementAvolonia.Data
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = @"INSERT OR REPLACE INTO Appointments (Id, PatientId, DoctorId, StartTime, EndTime, Status)
                                 VALUES (@id, @pid, @did, @st, @et, @stt)";
-            cmd.Parameters.AddWithValue("@id", app.Id);
-            cmd.Parameters.AddWithValue("@pid", app.Patient.Id);
-            cmd.Parameters.AddWithValue("@did", app.Doctor.Id);
-            cmd.Parameters.AddWithValue("@st", app.Start.ToString("yyyy-MM-dd HH:mm"));
-            cmd.Parameters.AddWithValue("@et", app.Start.AddMinutes(30).ToString("yyyy-MM-dd HH:mm"));
-            cmd.Parameters.AddWithValue("@stt", app.Status);
+            AddSanitizedParameter(cmd, "@id", app.Id);
+            AddSanitizedParameter(cmd, "@pid", app.Patient.Id);
+            AddSanitizedParameter(cmd, "@did", app.Doctor.Id);
+            AddSanitizedParameter(cmd, "@st", app.Start.ToString("yyyy-MM-dd HH:mm"));
+            AddSanitizedParameter(cmd, "@et", app.Start.AddMinutes(30).ToString("yyyy-MM-dd HH:mm"));
+            AddSanitizedParameter(cmd, "@stt", app.Status);
             await cmd.ExecuteNonQueryAsync();
         }
 
@@ -278,7 +299,7 @@ namespace HospitalManagementAvolonia.Data
             await conn.OpenAsync();
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = "DELETE FROM Appointments WHERE Id = @id";
-            cmd.Parameters.AddWithValue("@id", appointmentId);
+            AddSanitizedParameter(cmd, "@id", appointmentId);
             await cmd.ExecuteNonQueryAsync();
         }
 
@@ -313,10 +334,10 @@ namespace HospitalManagementAvolonia.Data
             await conn.OpenAsync();
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = "INSERT INTO Visits (PatientId, DoctorId, VisitDate, Notes) VALUES (@pid, @did, @dt, @notes)";
-            cmd.Parameters.AddWithValue("@pid", patientId);
-            cmd.Parameters.AddWithValue("@did", doctorId);
-            cmd.Parameters.AddWithValue("@dt", visitDate.ToString("yyyy-MM-dd HH:mm"));
-            cmd.Parameters.AddWithValue("@notes", notes ?? "");
+            AddSanitizedParameter(cmd, "@pid", patientId);
+            AddSanitizedParameter(cmd, "@did", doctorId);
+            AddSanitizedParameter(cmd, "@dt", visitDate.ToString("yyyy-MM-dd HH:mm"));
+            AddSanitizedParameter(cmd, "@notes", notes ?? "");
             await cmd.ExecuteNonQueryAsync();
         }
 
@@ -350,11 +371,11 @@ namespace HospitalManagementAvolonia.Data
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = @"INSERT OR REPLACE INTO Drugs (Id, Name, Unit, Stock, LowStockThreshold)
                                 VALUES (@id, @name, @unit, @stock, @threshold)";
-            cmd.Parameters.AddWithValue("@id", drug.Id);
-            cmd.Parameters.AddWithValue("@name", drug.Name);
-            cmd.Parameters.AddWithValue("@unit", drug.Unit);
-            cmd.Parameters.AddWithValue("@stock", drug.Stock);
-            cmd.Parameters.AddWithValue("@threshold", drug.LowStockThreshold);
+            AddSanitizedParameter(cmd, "@id", drug.Id);
+            AddSanitizedParameter(cmd, "@name", drug.Name);
+            AddSanitizedParameter(cmd, "@unit", drug.Unit);
+            AddSanitizedParameter(cmd, "@stock", drug.Stock);
+            AddSanitizedParameter(cmd, "@threshold", drug.LowStockThreshold);
             await cmd.ExecuteNonQueryAsync();
         }
 
@@ -381,12 +402,12 @@ namespace HospitalManagementAvolonia.Data
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = @"INSERT OR REPLACE INTO Prescriptions (Id, PatientId, PatientName, DoctorId, DoctorName, Date)
                                 VALUES (@id, @pid, @pname, @did, @dname, @date)";
-            cmd.Parameters.AddWithValue("@id", rx.Id);
-            cmd.Parameters.AddWithValue("@pid", rx.PatientId);
-            cmd.Parameters.AddWithValue("@pname", rx.PatientName);
-            cmd.Parameters.AddWithValue("@did", rx.DoctorId);
-            cmd.Parameters.AddWithValue("@dname", rx.DoctorName);
-            cmd.Parameters.AddWithValue("@date", rx.Date.ToString("yyyy-MM-dd HH:mm"));
+            AddSanitizedParameter(cmd, "@id", rx.Id);
+            AddSanitizedParameter(cmd, "@pid", rx.PatientId);
+            AddSanitizedParameter(cmd, "@pname", rx.PatientName);
+            AddSanitizedParameter(cmd, "@did", rx.DoctorId);
+            AddSanitizedParameter(cmd, "@dname", rx.DoctorName);
+            AddSanitizedParameter(cmd, "@date", rx.Date.ToString("yyyy-MM-dd HH:mm"));
             await cmd.ExecuteNonQueryAsync();
 
             // Save items
@@ -395,11 +416,11 @@ namespace HospitalManagementAvolonia.Data
                 await using var cmd2 = conn.CreateCommand();
                 cmd2.CommandText = @"INSERT INTO PrescriptionItems (PrescriptionId, DrugId, DrugName, Quantity, Dosage)
                                      VALUES (@rxid, @did, @dname, @qty, @dosage)";
-                cmd2.Parameters.AddWithValue("@rxid", rx.Id);
-                cmd2.Parameters.AddWithValue("@did", item.Drug.Id);
-                cmd2.Parameters.AddWithValue("@dname", item.Drug.Name);
-                cmd2.Parameters.AddWithValue("@qty", item.Quantity);
-                cmd2.Parameters.AddWithValue("@dosage", item.Dosage ?? "");
+                AddSanitizedParameter(cmd2, "@rxid", rx.Id);
+                AddSanitizedParameter(cmd2, "@did", item.Drug.Id);
+                AddSanitizedParameter(cmd2, "@dname", item.Drug.Name);
+                AddSanitizedParameter(cmd2, "@qty", item.Quantity);
+                AddSanitizedParameter(cmd2, "@dosage", item.Dosage ?? "");
                 await cmd2.ExecuteNonQueryAsync();
             }
         }
@@ -427,14 +448,14 @@ namespace HospitalManagementAvolonia.Data
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = @"INSERT OR REPLACE INTO Invoices (Id, AppointmentId, PatientName, DoctorName, Date, BaseAmount, InsuranceCoveragePercent, Status)
                                 VALUES (@id, @appid, @pname, @dname, @date, @base, @ins, @status)";
-            cmd.Parameters.AddWithValue("@id", inv.Id);
-            cmd.Parameters.AddWithValue("@appid", inv.AppointmentId);
-            cmd.Parameters.AddWithValue("@pname", inv.PatientName);
-            cmd.Parameters.AddWithValue("@dname", inv.DoctorName);
-            cmd.Parameters.AddWithValue("@date", inv.Date.ToString("yyyy-MM-dd HH:mm"));
-            cmd.Parameters.AddWithValue("@base", (double)inv.BaseAmount);
-            cmd.Parameters.AddWithValue("@ins", (double)inv.InsuranceCoveragePercent);
-            cmd.Parameters.AddWithValue("@status", inv.Status);
+            AddSanitizedParameter(cmd, "@id", inv.Id);
+            AddSanitizedParameter(cmd, "@appid", inv.AppointmentId);
+            AddSanitizedParameter(cmd, "@pname", inv.PatientName);
+            AddSanitizedParameter(cmd, "@dname", inv.DoctorName);
+            AddSanitizedParameter(cmd, "@date", inv.Date.ToString("yyyy-MM-dd HH:mm"));
+            AddSanitizedParameter(cmd, "@base", (double)inv.BaseAmount);
+            AddSanitizedParameter(cmd, "@ins", (double)inv.InsuranceCoveragePercent);
+            AddSanitizedParameter(cmd, "@status", inv.Status);
             await cmd.ExecuteNonQueryAsync();
         }
 
@@ -461,12 +482,12 @@ namespace HospitalManagementAvolonia.Data
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = @"INSERT OR REPLACE INTO DoctorShifts (Id, DoctorId, DoctorName, Day, StartHour, EndHour)
                                 VALUES (@id, @did, @dname, @day, @start, @end)";
-            cmd.Parameters.AddWithValue("@id", shift.Id);
-            cmd.Parameters.AddWithValue("@did", shift.DoctorId);
-            cmd.Parameters.AddWithValue("@dname", shift.DoctorName);
-            cmd.Parameters.AddWithValue("@day", (int)shift.Day);
-            cmd.Parameters.AddWithValue("@start", shift.StartHour);
-            cmd.Parameters.AddWithValue("@end", shift.EndHour);
+            AddSanitizedParameter(cmd, "@id", shift.Id);
+            AddSanitizedParameter(cmd, "@did", shift.DoctorId);
+            AddSanitizedParameter(cmd, "@dname", shift.DoctorName);
+            AddSanitizedParameter(cmd, "@day", (int)shift.Day);
+            AddSanitizedParameter(cmd, "@start", shift.StartHour);
+            AddSanitizedParameter(cmd, "@end", shift.EndHour);
             await cmd.ExecuteNonQueryAsync();
         }
 
@@ -476,7 +497,7 @@ namespace HospitalManagementAvolonia.Data
             await conn.OpenAsync();
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = "DELETE FROM DoctorShifts WHERE Id = @id";
-            cmd.Parameters.AddWithValue("@id", shiftId);
+            AddSanitizedParameter(cmd, "@id", shiftId);
             await cmd.ExecuteNonQueryAsync();
         }
 

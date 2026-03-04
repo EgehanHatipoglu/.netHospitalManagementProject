@@ -6,83 +6,110 @@
         <FluentTheme />
         <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
     </Application.Styles>
+
     <Application.Resources>
-        <!-- ═══════════════════════════════════════════
-             LIGHT THEME TOKENS  (default)
-             Toggle these via App.axaml.cs on theme change
-             ═══════════════════════════════════════════ -->
+        <ResourceDictionary>
+            <!-- ── Base typography and corners remain static ── -->
+            <x:Double x:Key="FontXS">11</x:Double>
+            <x:Double x:Key="FontSM">13</x:Double>
+            <x:Double x:Key="FontBase">14</x:Double>
+            <x:Double x:Key="FontLG">16</x:Double>
+            <x:Double x:Key="FontXL">18</x:Double>
+            <x:Double x:Key="Font2XL">22</x:Double>
+            <x:Double x:Key="Font3XL">28</x:Double>
 
-        <!-- Background surfaces -->
-        <Color x:Key="PrimaryBg">#F3F4F6</Color>
-        <Color x:Key="SidebarBg">#FFFFFF</Color>
-        <Color x:Key="CardBg">#FFFFFF</Color>
-        <Color x:Key="HoverBg">#F9FAFB</Color>
-        <Color x:Key="InputBg">#F9FAFB</Color>
+            <CornerRadius x:Key="RadiusSM">4</CornerRadius>
+            <CornerRadius x:Key="RadiusMD">6</CornerRadius>
+            <CornerRadius x:Key="RadiusLG">8</CornerRadius>
+            <CornerRadius x:Key="RadiusXL">12</CornerRadius>
+            <CornerRadius x:Key="RadiusFull">999</CornerRadius>
+            
+            <!-- Status / semantic colors -->
+            <Color x:Key="StatusSuccessClr">#16A34A</Color>
+            <Color x:Key="StatusWarningClr">#D97706</Color>
+            <Color x:Key="StatusErrorClr">#DC2626</Color>
+            <Color x:Key="StatusInfoClr">#2563EB</Color>
+            
+            <!-- Accent palette -->
+            <Color x:Key="AccentBlueClr">#2563EB</Color>
+            <Color x:Key="AccentBlueLightClr">#DBEAFE</Color>
+            <Color x:Key="AccentGreenClr">#16A34A</Color>
+            <Color x:Key="AccentGreenLightClr">#DCFCE7</Color>
+            <Color x:Key="AccentRedClr">#DC2626</Color>
+            <Color x:Key="AccentRedLightClr">#FEE2E2</Color>
+            <Color x:Key="AccentOrangeClr">#D97706</Color>
+            <Color x:Key="AccentOrangeLightClr">#FEF3C7</Color>
+            <Color x:Key="AccentPurpleClr">#7C3AED</Color>
+            <Color x:Key="AccentPurpleLightClr">#EDE9FE</Color>
 
-        <!-- Text -->
-        <Color x:Key="TextPrimary">#111827</Color>
-        <Color x:Key="TextSecondary">#4B5563</Color>
-        <Color x:Key="TextMuted">#9CA3AF</Color>
-        <Color x:Key="TextOnAccent">#FFFFFF</Color>
+            <ResourceDictionary.ThemeDictionaries>
+                <!-- LIGHT THEME -->
+                <ResourceDictionary x:Key="Light">
+                    <Color x:Key="PrimaryBg">#F3F4F6</Color>
+                    <Color x:Key="SidebarBg">#FFFFFF</Color>
+                    <Color x:Key="CardBg">#FFFFFF</Color>
+                    <Color x:Key="HoverBg">#F9FAFB</Color>
+                    <Color x:Key="InputBg">#F9FAFB</Color>
 
-        <!-- Border / Divider -->
-        <Color x:Key="BorderClr">#E5E7EB</Color>
-        <Color x:Key="DividerClr">#F3F4F6</Color>
+                    <Color x:Key="TextPrimary">#111827</Color>
+                    <Color x:Key="TextSecondary">#4B5563</Color>
+                    <Color x:Key="TextMuted">#9CA3AF</Color>
+                    <Color x:Key="TextOnAccent">#FFFFFF</Color>
 
-        <!-- Accent palette -->
-        <Color x:Key="AccentBlue">#2563EB</Color>
-        <Color x:Key="AccentBlueLight">#DBEAFE</Color>
-        <Color x:Key="AccentGreen">#16A34A</Color>
-        <Color x:Key="AccentGreenLight">#DCFCE7</Color>
-        <Color x:Key="AccentRed">#DC2626</Color>
-        <Color x:Key="AccentRedLight">#FEE2E2</Color>
-        <Color x:Key="AccentOrange">#D97706</Color>
-        <Color x:Key="AccentOrangeLight">#FEF3C7</Color>
-        <Color x:Key="AccentPurple">#7C3AED</Color>
-        <Color x:Key="AccentPurpleLight">#EDE9FE</Color>
+                    <Color x:Key="BorderClr">#E5E7EB</Color>
+                    <Color x:Key="DividerClr">#F3F4F6</Color>
 
-        <!-- Status / semantic -->
-        <Color x:Key="StatusSuccess">#16A34A</Color>
-        <Color x:Key="StatusWarning">#D97706</Color>
-        <Color x:Key="StatusError">#DC2626</Color>
-        <Color x:Key="StatusInfo">#2563EB</Color>
+                    <SolidColorBrush x:Key="PrimaryBgBrush"       Color="{DynamicResource PrimaryBg}" />
+                    <SolidColorBrush x:Key="SidebarBgBrush"       Color="{DynamicResource SidebarBg}" />
+                    <SolidColorBrush x:Key="CardBgBrush"          Color="{DynamicResource CardBg}" />
+                    <SolidColorBrush x:Key="HoverBgBrush"         Color="{DynamicResource HoverBg}" />
+                    <SolidColorBrush x:Key="InputBgBrush"         Color="{DynamicResource InputBg}" />
+                    <SolidColorBrush x:Key="TextPrimaryBrush"     Color="{DynamicResource TextPrimary}" />
+                    <SolidColorBrush x:Key="TextSecondaryBrush"   Color="{DynamicResource TextSecondary}" />
+                    <SolidColorBrush x:Key="TextMutedBrush"       Color="{DynamicResource TextMuted}" />
+                    <SolidColorBrush x:Key="BorderBrush"          Color="{DynamicResource BorderClr}" />
+                    <SolidColorBrush x:Key="DividerBrush"         Color="{DynamicResource DividerClr}" />
+                </ResourceDictionary>
 
-        <!-- ── Brushes ─────────────────────────────── -->
-        <SolidColorBrush x:Key="PrimaryBgBrush"       Color="{StaticResource PrimaryBg}" />
-        <SolidColorBrush x:Key="SidebarBgBrush"       Color="{StaticResource SidebarBg}" />
-        <SolidColorBrush x:Key="CardBgBrush"          Color="{StaticResource CardBg}" />
-        <SolidColorBrush x:Key="HoverBgBrush"         Color="{StaticResource HoverBg}" />
-        <SolidColorBrush x:Key="InputBgBrush"         Color="{StaticResource InputBg}" />
-        <SolidColorBrush x:Key="AccentBlueBrush"      Color="{StaticResource AccentBlue}" />
-        <SolidColorBrush x:Key="AccentBlueLightBrush" Color="{StaticResource AccentBlueLight}" />
-        <SolidColorBrush x:Key="AccentGreenBrush"     Color="{StaticResource AccentGreen}" />
-        <SolidColorBrush x:Key="AccentGreenLightBrush" Color="{StaticResource AccentGreenLight}" />
-        <SolidColorBrush x:Key="AccentRedBrush"       Color="{StaticResource AccentRed}" />
-        <SolidColorBrush x:Key="AccentRedLightBrush"  Color="{StaticResource AccentRedLight}" />
-        <SolidColorBrush x:Key="AccentOrangeBrush"    Color="{StaticResource AccentOrange}" />
-        <SolidColorBrush x:Key="AccentOrangeLightBrush" Color="{StaticResource AccentOrangeLight}" />
-        <SolidColorBrush x:Key="AccentPurpleBrush"    Color="{StaticResource AccentPurple}" />
-        <SolidColorBrush x:Key="TextPrimaryBrush"     Color="{StaticResource TextPrimary}" />
-        <SolidColorBrush x:Key="TextSecondaryBrush"   Color="{StaticResource TextSecondary}" />
-        <SolidColorBrush x:Key="TextMutedBrush"       Color="{StaticResource TextMuted}" />
-        <SolidColorBrush x:Key="BorderBrush"          Color="{StaticResource BorderClr}" />
-        <SolidColorBrush x:Key="DividerBrush"         Color="{StaticResource DividerClr}" />
+                <!-- DARK THEME -->
+                <ResourceDictionary x:Key="Dark">
+                    <Color x:Key="PrimaryBg">#0F172A</Color>
+                    <Color x:Key="SidebarBg">#1E293B</Color>
+                    <Color x:Key="CardBg">#1E293B</Color>            
+                    <Color x:Key="HoverBg">#334155</Color>           
+                    <Color x:Key="InputBg">#0F172A</Color>           
 
-        <!-- ── Typography scale ──────────────────────── -->
-        <x:Double x:Key="FontXS">11</x:Double>
-        <x:Double x:Key="FontSM">13</x:Double>
-        <x:Double x:Key="FontBase">14</x:Double>
-        <x:Double x:Key="FontLG">16</x:Double>
-        <x:Double x:Key="FontXL">18</x:Double>
-        <x:Double x:Key="Font2XL">22</x:Double>
-        <x:Double x:Key="Font3XL">28</x:Double>
+                    <Color x:Key="TextPrimary">#F8FAFC</Color>
+                    <Color x:Key="TextSecondary">#94A3B8</Color>
+                    <Color x:Key="TextMuted">#64748B</Color>         
+                    <Color x:Key="TextOnAccent">#FFFFFF</Color>
 
-        <!-- ── Corner radius ─────────────────────────── -->
-        <CornerRadius x:Key="RadiusSM">4</CornerRadius>
-        <CornerRadius x:Key="RadiusMD">6</CornerRadius>
-        <CornerRadius x:Key="RadiusLG">8</CornerRadius>
-        <CornerRadius x:Key="RadiusXL">12</CornerRadius>
-        <CornerRadius x:Key="RadiusFull">999</CornerRadius>
+                    <Color x:Key="BorderClr">#334155</Color>
+                    <Color x:Key="DividerClr">#334155</Color>
+
+                    <SolidColorBrush x:Key="PrimaryBgBrush"       Color="{DynamicResource PrimaryBg}" />
+                    <SolidColorBrush x:Key="SidebarBgBrush"       Color="{DynamicResource SidebarBg}" />
+                    <SolidColorBrush x:Key="CardBgBrush"          Color="{DynamicResource CardBg}" />
+                    <SolidColorBrush x:Key="HoverBgBrush"         Color="{DynamicResource HoverBg}" />
+                    <SolidColorBrush x:Key="InputBgBrush"         Color="{DynamicResource InputBg}" />
+                    <SolidColorBrush x:Key="TextPrimaryBrush"     Color="{DynamicResource TextPrimary}" />
+                    <SolidColorBrush x:Key="TextSecondaryBrush"   Color="{DynamicResource TextSecondary}" />
+                    <SolidColorBrush x:Key="TextMutedBrush"       Color="{DynamicResource TextMuted}" />
+                    <SolidColorBrush x:Key="BorderBrush"          Color="{DynamicResource BorderClr}" />
+                    <SolidColorBrush x:Key="DividerBrush"         Color="{DynamicResource DividerClr}" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+
+            <!-- Accent Brushes (Static, shared) -->
+            <SolidColorBrush x:Key="AccentBlueBrush"      Color="{StaticResource AccentBlueClr}" />
+            <SolidColorBrush x:Key="AccentBlueLightBrush" Color="{StaticResource AccentBlueLightClr}" />
+            <SolidColorBrush x:Key="AccentGreenBrush"     Color="{StaticResource AccentGreenClr}" />
+            <SolidColorBrush x:Key="AccentGreenLightBrush" Color="{StaticResource AccentGreenLightClr}" />
+            <SolidColorBrush x:Key="AccentRedBrush"       Color="{StaticResource AccentRedClr}" />
+            <SolidColorBrush x:Key="AccentRedLightBrush"  Color="{StaticResource AccentRedLightClr}" />
+            <SolidColorBrush x:Key="AccentOrangeBrush"    Color="{StaticResource AccentOrangeClr}" />
+            <SolidColorBrush x:Key="AccentOrangeLightBrush" Color="{StaticResource AccentOrangeLightClr}" />
+            <SolidColorBrush x:Key="AccentPurpleBrush"    Color="{StaticResource AccentPurpleClr}" />
+        </ResourceDictionary>
     </Application.Resources>
 </Application>
-

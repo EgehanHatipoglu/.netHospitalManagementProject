@@ -131,6 +131,9 @@ namespace HospitalManagementAvolonia.ViewModels
         public void ShowProfile()
         {
             if (SelectedPatient == null) return;
+            
+            _patientService.RecordPatientView(SelectedPatient); // Record for LRUCache
+
             ProfileName = SelectedPatient.FullName;
             ProfileDetails = $"Doğum: {SelectedPatient.BirthDate:dd/MM/yyyy} ({DateTime.Today.Year - SelectedPatient.BirthDate.Year} yaş)\nTC: {SelectedPatient.NationalId} | Tel: {SelectedPatient.Phone}";
             
@@ -148,6 +151,74 @@ namespace HospitalManagementAvolonia.ViewModels
         public void CloseProfile()
         {
             IsProfileVisible = false;
+        }
+
+        // --- Data Structure Specific Commands ---
+
+        [RelayCommand]
+        public void SearchBST(string query)
+        {
+            if (string.IsNullOrWhiteSpace(query)) return;
+            var parts = query.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var fName = parts[0];
+            var lName = parts.Length > 1 ? parts[1] : "";
+            
+            var p = _patientService.SearchBST(fName, lName);
+            if (p != null)
+            {
+                Patients.Load(new[] { p });
+                ToastService.Instance.Info("BST ile bulundu: " + p.FullName);
+            }
+            else
+            {
+                Patients.Load(Array.Empty<Patient>());
+                ToastService.Instance.Warning("BST'de bulunamadı.");
+            }
+        }
+
+        [RelayCommand]
+        public void ListBST()
+        {
+            var list = _patientService.GetAllFromBST();
+            Patients.Load(list);
+            ToastService.Instance.Info($"BST'den {list.Count} kayıt çevrildi.");
+        }
+
+        [RelayCommand]
+        public void SearchAVL(string query)
+        {
+            if (string.IsNullOrWhiteSpace(query)) return;
+            var parts = query.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var fName = parts[0];
+            var lName = parts.Length > 1 ? parts[1] : "";
+            
+            var p = _patientService.SearchAVL(fName, lName);
+            if (p != null)
+            {
+                Patients.Load(new[] { p });
+                ToastService.Instance.Info("AVL ile bulundu: " + p.FullName);
+            }
+            else
+            {
+                Patients.Load(Array.Empty<Patient>());
+                ToastService.Instance.Warning("AVL'de bulunamadı.");
+            }
+        }
+
+        [RelayCommand]
+        public void ListAVL()
+        {
+            var list = _patientService.GetAllFromAVL();
+            Patients.Load(list);
+            ToastService.Instance.Info($"AVL'den {list.Count} kayıt çevrildi.");
+        }
+
+        [RelayCommand]
+        public void ShowRecentPatients()
+        {
+            var list = _patientService.GetRecentPatients();
+            Patients.Load(list);
+            ToastService.Instance.Info("LRU Cache'ten son görüntülenen hastalar.");
         }
     }
 }

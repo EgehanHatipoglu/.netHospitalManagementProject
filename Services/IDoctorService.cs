@@ -13,5 +13,11 @@ namespace HospitalManagementAvolonia.Services
         Task UpdateDoctorAsync(Doctor doctor);
         Task DeleteDoctorAsync(int id);
         Task<List<Department>> GetDepartmentsAsync();
+
+        // DoctorGraph methods
+        void AddReferral(Doctor from, Doctor to);
+        List<Doctor> GetReferrals(int doctorId);
+        List<string> GetReferralPathBFS(int startId, int targetId);
+        List<string> GetReferralNetworkDFS(int startId);
     }
 }
