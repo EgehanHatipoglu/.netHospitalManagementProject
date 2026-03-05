@@ -18,6 +18,10 @@ namespace HospitalManagementAvolonia.ViewModels
         [ObservableProperty] private string _activePanel = "Dashboard";
         [ObservableProperty] private string _statusMessage = "✓ Sistem hazır.";
         [ObservableProperty] private bool _isSidebarCollapsed = false;
+        [ObservableProperty] private bool _isLightTheme = false;
+
+        public string ThemeButtonText => IsLightTheme ? "☀️  Açık Tema" : "🌙  Koyu Tema";
+        public string ThemeButtonIcon => IsLightTheme ? "☀️" : "🌙";
 
         // Undo Properties
         [ObservableProperty] private string _undoPeekMessage = "";
@@ -136,16 +140,15 @@ namespace HospitalManagementAvolonia.ViewModels
             var app = Avalonia.Application.Current;
             if (app != null)
             {
-                if (app.RequestedThemeVariant == Avalonia.Styling.ThemeVariant.Dark)
-                {
-                    app.RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Light;
-                    ToastService.Instance.Info("Açık temaya geçildi.");
-                }
-                else
-                {
-                    app.RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark;
-                    ToastService.Instance.Info("Karanlık temaya geçildi.");
-                }
+                IsLightTheme = !IsLightTheme;
+                app.RequestedThemeVariant = IsLightTheme
+                    ? Avalonia.Styling.ThemeVariant.Light
+                    : Avalonia.Styling.ThemeVariant.Dark;
+
+                OnPropertyChanged(nameof(ThemeButtonText));
+                OnPropertyChanged(nameof(ThemeButtonIcon));
+
+                ToastService.Instance.Info(IsLightTheme ? "Açık temaya geçildi." : "Karanlık temaya geçildi.");
             }
         }
     }

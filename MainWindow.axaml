@@ -68,40 +68,114 @@
                         <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,12,0,0" />
                     </StackPanel>
 
-                <ScrollViewer>
+                    <ScrollViewer>
                     <StackPanel>
                         <TextBlock Text="ANA İŞLEMLER" FontSize="10" FontWeight="Bold" Margin="20,8,0,6"
-                                   Foreground="{DynamicResource TextSecondaryBrush}" />
-                        <Button Content="🏠  Dashboard" Command="{Binding NavCommand}" CommandParameter="Dashboard" Classes="nav"/>
-                        <Button Content="👤  Hasta Yönetimi" Command="{Binding NavCommand}" CommandParameter="Patients" Classes="nav"/>
-                        <Button Content="🩺  Doktor Yönetimi" Command="{Binding NavCommand}" CommandParameter="Doctors" Classes="nav"/>
-                        <Button Content="📋  Randevu İşlemleri" Command="{Binding NavCommand}" CommandParameter="Appointments" Classes="nav"/>
-                        <Button Content="🚨  Acil Servis" Command="{Binding NavCommand}" CommandParameter="Emergency" Classes="nav"/>
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   IsVisible="{Binding !IsSidebarCollapsed}" />
+                        <Button Command="{Binding NavCommand}" CommandParameter="Dashboard" Classes="nav" ToolTip.Tip="Dashboard">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="🏠" FontSize="16" VerticalAlignment="Center"/>
+                                <TextBlock Text="Dashboard" VerticalAlignment="Center" IsVisible="{Binding !IsSidebarCollapsed}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding NavCommand}" CommandParameter="Patients" Classes="nav" ToolTip.Tip="Hasta Yönetimi">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="👤" FontSize="16" VerticalAlignment="Center"/>
+                                <TextBlock Text="Hasta Yönetimi" VerticalAlignment="Center" IsVisible="{Binding !IsSidebarCollapsed}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding NavCommand}" CommandParameter="Doctors" Classes="nav" ToolTip.Tip="Doktor Yönetimi">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="🩺" FontSize="16" VerticalAlignment="Center"/>
+                                <TextBlock Text="Doktor Yönetimi" VerticalAlignment="Center" IsVisible="{Binding !IsSidebarCollapsed}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding NavCommand}" CommandParameter="Appointments" Classes="nav" ToolTip.Tip="Randevu İşlemleri">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="📋" FontSize="16" VerticalAlignment="Center"/>
+                                <TextBlock Text="Randevu İşlemleri" VerticalAlignment="Center" IsVisible="{Binding !IsSidebarCollapsed}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding NavCommand}" CommandParameter="Emergency" Classes="nav" ToolTip.Tip="Acil Servis">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="🚨" FontSize="16" VerticalAlignment="Center"/>
+                                <TextBlock Text="Acil Servis" VerticalAlignment="Center" IsVisible="{Binding !IsSidebarCollapsed}"/>
+                            </StackPanel>
+                        </Button>
 
                         <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="16,12" />
 
                         <TextBlock Text="ARAMA" FontSize="10" FontWeight="Bold" Margin="20,4,0,6"
-                                   Foreground="{DynamicResource TextSecondaryBrush}" />
-                        <Button Content="🔍  Hasta Arama (Hızlı)" Command="{Binding NavCommand}" CommandParameter="BST" Classes="nav"/>
-                        <Button Content="🔍  Hasta Arama (Gelişmiş)" Command="{Binding NavCommand}" CommandParameter="AVL" Classes="nav"/>
-                        <Button Content="🏛️  Bölüm ve Yapı" Command="{Binding NavCommand}" CommandParameter="Departments" Classes="nav"/>
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   IsVisible="{Binding !IsSidebarCollapsed}" />
+                        <Button Command="{Binding NavCommand}" CommandParameter="BST" Classes="nav" ToolTip.Tip="Hasta Arama (Hızlı)">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="🔍" FontSize="16" VerticalAlignment="Center"/>
+                                <TextBlock Text="Hasta Arama (Hızlı)" VerticalAlignment="Center" IsVisible="{Binding !IsSidebarCollapsed}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding NavCommand}" CommandParameter="AVL" Classes="nav" ToolTip.Tip="Hasta Arama (Gelişmiş)">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="🔍" FontSize="16" VerticalAlignment="Center"/>
+                                <TextBlock Text="Hasta Arama (Gelişmiş)" VerticalAlignment="Center" IsVisible="{Binding !IsSidebarCollapsed}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding NavCommand}" CommandParameter="Departments" Classes="nav" ToolTip.Tip="Bölüm ve Yapı">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="🏛️" FontSize="16" VerticalAlignment="Center"/>
+                                <TextBlock Text="Bölüm ve Yapı" VerticalAlignment="Center" IsVisible="{Binding !IsSidebarCollapsed}"/>
+                            </StackPanel>
+                        </Button>
 
                         <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="16,12" />
 
                         <TextBlock Text="SİSTEM" FontSize="10" FontWeight="Bold" Margin="20,4,0,6"
-                                   Foreground="{DynamicResource TextSecondaryBrush}" />
-                        <Button Content="↩️  Geri Al" Command="{Binding NavCommand}" CommandParameter="Undo" Classes="nav"/>
-                        <Button Content="📊  İstatistikler" Command="{Binding NavCommand}" CommandParameter="Stats" Classes="nav"/>
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   IsVisible="{Binding !IsSidebarCollapsed}" />
+                        <Button Command="{Binding NavCommand}" CommandParameter="Undo" Classes="nav" ToolTip.Tip="Geri Al">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="↩️" FontSize="16" VerticalAlignment="Center"/>
+                                <TextBlock Text="Geri Al" VerticalAlignment="Center" IsVisible="{Binding !IsSidebarCollapsed}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding NavCommand}" CommandParameter="Stats" Classes="nav" ToolTip.Tip="İstatistikler">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="📊" FontSize="16" VerticalAlignment="Center"/>
+                                <TextBlock Text="İstatistikler" VerticalAlignment="Center" IsVisible="{Binding !IsSidebarCollapsed}"/>
+                            </StackPanel>
+                        </Button>
 
                         <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="16,12" />
                         <TextBlock Text="KLİNİK" FontSize="10" FontWeight="Bold" Margin="20,4,0,6"
-                                   Foreground="{DynamicResource TextSecondaryBrush}" />
-                        <Button Content="💊  Reçete &amp; İlaç" Command="{Binding NavCommand}" CommandParameter="Prescription" Classes="nav"/>
-                        <Button Content="🧾  Fatura" Command="{Binding NavCommand}" CommandParameter="Billing" Classes="nav"/>
-                        <Button Content="📅  Nöbet Planlama" Command="{Binding NavCommand}" CommandParameter="Shifts" Classes="nav"/>
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   IsVisible="{Binding !IsSidebarCollapsed}" />
+                        <Button Command="{Binding NavCommand}" CommandParameter="Prescription" Classes="nav" ToolTip.Tip="Reçete &amp; İlaç">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="💊" FontSize="16" VerticalAlignment="Center"/>
+                                <TextBlock Text="Reçete &amp; İlaç" VerticalAlignment="Center" IsVisible="{Binding !IsSidebarCollapsed}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding NavCommand}" CommandParameter="Billing" Classes="nav" ToolTip.Tip="Fatura">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="🧾" FontSize="16" VerticalAlignment="Center"/>
+                                <TextBlock Text="Fatura" VerticalAlignment="Center" IsVisible="{Binding !IsSidebarCollapsed}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding NavCommand}" CommandParameter="Shifts" Classes="nav" ToolTip.Tip="Nöbet Planlama">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="📅" FontSize="16" VerticalAlignment="Center"/>
+                                <TextBlock Text="Nöbet Planlama" VerticalAlignment="Center" IsVisible="{Binding !IsSidebarCollapsed}"/>
+                            </StackPanel>
+                        </Button>
 
                         <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="16,12" />
-                        <Button Content="🌙  Koyu Tema" Command="{Binding ToggleThemeCommand}" Classes="nav"/>
+                        <Button Command="{Binding ToggleThemeCommand}" Classes="nav" ToolTip.Tip="{Binding ThemeButtonText}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="{Binding ThemeButtonIcon}" FontSize="16" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding ThemeButtonText}" VerticalAlignment="Center" IsVisible="{Binding !IsSidebarCollapsed}"/>
+                            </StackPanel>
+                        </Button>
                     </StackPanel>
                 </ScrollViewer>
                 </DockPanel>
