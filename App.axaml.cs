@@ -24,13 +24,9 @@ public partial class App : Application
         ConfigureServices(services);
         Services = services.BuildServiceProvider();
 
-        var db = Services.GetRequiredService<IDatabaseService>();
-        _ = db.InitializeDatabaseAsync();
-
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var mainWindow = new MainWindow();
-            _ = mainWindow.InitializeAsync();
             desktop.MainWindow = mainWindow;
         }
 

@@ -7,13 +7,12 @@ using HospitalManagementAvolonia.Models;
 
 namespace HospitalManagementAvolonia.Services
 {
-    public class DepartmentService : IDepartmentService
+    public class DepartmentService : ServiceBase, IDepartmentService
     {
         private readonly IDatabaseService _db;
         private readonly HashTable<int, Department> _departments = new();
         private readonly HospitalTree _hospitalTree = new("Manisa Celal Bayar University Hospital");
         private int _departmentIdCounter = 0;
-        private bool _isInitialized = false;
 
         public DepartmentService(IDatabaseService db)
         {
@@ -22,35 +21,34 @@ namespace HospitalManagementAvolonia.Services
 
         public async Task InitializeAsync()
         {
-            if (_isInitialized) return;
-
-            var depts = await _db.LoadDepartmentsAsync();
-            foreach (var (id, name, cap) in depts)
+            await EnsureInitializedAsync(async () =>
             {
-                var d = new Department(id, name, cap);
-                _departments.Put(id, d);
-                _hospitalTree.AddDepartmentToRoot(d);
-                if (id > _departmentIdCounter) _departmentIdCounter = id;
-            }
-
-            _isInitialized = true;
+                var depts = await _db.LoadDepartmentsAsync();
+                foreach (var (id, name, cap) in depts)
+                {
+                    var d = new Department(id, name, cap);
+                    _departments.Put(id, d);
+                    _hospitalTree.AddDepartmentToRoot(d);
+                    if (id > _departmentIdCounter) _departmentIdCounter = id;
+                }
+            });
         }
 
         public async Task<List<Department>> GetAllDepartmentsAsync()
         {
-            if (!_isInitialized) await InitializeAsync();
+            if (!IsInitialized) await InitializeAsync();
             return _departments.Values().OrderBy(d => d.Name).ToList();
         }
 
         public async Task<Department?> GetDepartmentByIdAsync(int id)
         {
-            if (!_isInitialized) await InitializeAsync();
+            if (!IsInitialized) await InitializeAsync();
             return _departments.Get(id);
         }
 
         public async Task<Department> AddDepartmentAsync(string name, int capacity)
         {
-            if (!_isInitialized) await InitializeAsync();
+            if (!IsInitialized) await InitializeAsync();
 
             _departmentIdCounter++;
             var dept = new Department(_departmentIdCounter, name, capacity);

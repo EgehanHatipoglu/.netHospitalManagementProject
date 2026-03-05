@@ -40,10 +40,15 @@ public partial class MainWindow : Window
                     vm.IsSidebarCollapsed = false;
             }
         };
+        // Initialize everything sequentially when window opens
+        this.Opened += async (s, e) => await InitializeAsync();
     }
 
     public async System.Threading.Tasks.Task InitializeAsync()
     {
+        var db = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<IDatabaseService>(App.Services!);
+        await db.InitializeDatabaseAsync();
+
         if (DataContext is ViewModels.MainViewModel mvm)
         {
             await mvm.InitializeAllAsync();

@@ -6,6 +6,7 @@ namespace HospitalManagementAvolonia.Services
 {
     public interface IDoctorService
     {
+        Task InitializeAsync();
         Task<List<Doctor>> GetAllDoctorsAsync();
         Task<Doctor?> GetDoctorByIdAsync(int id);
         Task<IEnumerable<Doctor>> SearchDoctorsAsync(string searchString);

@@ -7,14 +7,13 @@ using HospitalManagementAvolonia.Models;
 
 namespace HospitalManagementAvolonia.Services
 {
-    public class AppointmentService : IAppointmentService
+    public class AppointmentService : ServiceBase, IAppointmentService
     {
         private readonly IDatabaseService _db;
         private readonly IPatientService _patientService;
         private readonly IDoctorService _doctorService;
         private readonly Dictionary<int, Appointment> _appointments = new();
         private int _appointmentIdCounter = 0;
-        private bool _isInitialized = false;
 
         private readonly HospitalManagementAvolonia.DataStructures.AppointmentSegmentTree _segmentTree = new(DateTime.Today.AddDays(-30), 100);
 
@@ -27,38 +26,37 @@ namespace HospitalManagementAvolonia.Services
 
         public async Task InitializeAsync()
         {
-            if (_isInitialized) return;
-
-            var dtos = await _db.LoadAppointmentsAsync();
-            foreach (var dto in dtos)
+            await EnsureInitializedAsync(async () =>
             {
-                if (dto.id > _appointmentIdCounter) _appointmentIdCounter = dto.id;
-                
-                var p = await _patientService.GetPatientByIdAsync(dto.patientId);
-                var d = await _doctorService.GetDoctorByIdAsync(dto.doctorId);
-                
-                if (p != null && d != null && DateTime.TryParse(dto.startTime, out DateTime dt))
+                var dtos = await _db.LoadAppointmentsAsync();
+                foreach (var dto in dtos)
                 {
-                    var app = new Appointment(dto.id, p, d, dt) { Status = dto.status };
-                    _appointments[app.Id] = app;
-                    d.DailyQueue.Enqueue(app); // Note: In a real app we might not want to re-enqueue historical appointments blindly
+                    if (dto.id > _appointmentIdCounter) _appointmentIdCounter = dto.id;
                     
-                    _segmentTree.AddAppointment(app.Start);
+                    var p = await _patientService.GetPatientByIdAsync(dto.patientId);
+                    var d = await _doctorService.GetDoctorByIdAsync(dto.doctorId);
+                    
+                    if (p != null && d != null && DateTime.TryParse(dto.startTime, out DateTime dt))
+                    {
+                        var app = new Appointment(dto.id, p, d, dt) { Status = dto.status };
+                        _appointments[app.Id] = app;
+                        d.DailyQueue.Enqueue(app); // Note: In a real app we might not want to re-enqueue historical appointments blindly
+                        
+                        _segmentTree.AddAppointment(app.Start);
+                    }
                 }
-            }
-
-            _isInitialized = true;
+            });
         }
 
         public async Task<List<Appointment>> GetAllAppointmentsAsync()
         {
-            if (!_isInitialized) await InitializeAsync();
+            if (!IsInitialized) await InitializeAsync();
             return _appointments.Values.OrderBy(a => a.Start).ToList();
         }
 
         public async Task<Appointment> CreateAppointmentAsync(Patient patient, Doctor doctor, DateTime dateTime)
         {
-            if (!_isInitialized) await InitializeAsync();
+            if (!IsInitialized) await InitializeAsync();
 
             _appointmentIdCounter++;
             var app = new Appointment(_appointmentIdCounter, patient, doctor, dateTime);
@@ -74,7 +72,7 @@ namespace HospitalManagementAvolonia.Services
 
         public async Task UpdateAppointmentAsync(Appointment appointment)
         {
-            if (!_isInitialized) await InitializeAsync();
+            if (!IsInitialized) await InitializeAsync();
 
             if (_appointments.TryGetValue(appointment.Id, out var oldApp))
             {
@@ -91,7 +89,7 @@ namespace HospitalManagementAvolonia.Services
 
         public async Task DeleteAppointmentAsync(int id)
         {
-            if (!_isInitialized) await InitializeAsync();
+            if (!IsInitialized) await InitializeAsync();
 
             if (_appointments.TryGetValue(id, out var app))
             {
@@ -120,7 +118,7 @@ namespace HospitalManagementAvolonia.Services
 
         public async Task<Appointment?> ExaminePatientAsync(int doctorId)
         {
-            if (!_isInitialized) await InitializeAsync();
+            if (!IsInitialized) await InitializeAsync();
             var d = await _doctorService.GetDoctorByIdAsync(doctorId);
             if (d == null) return null;
 

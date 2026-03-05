@@ -6,40 +6,37 @@ using HospitalManagementAvolonia.Models;
 
 namespace HospitalManagementAvolonia.Services
 {
-    public class DoctorService : IDoctorService
+    public class DoctorService : ServiceBase, IDoctorService
     {
         private readonly IDatabaseService _db;
+        private readonly IDepartmentService _departmentService;
         private readonly Dictionary<int, Doctor> _doctors = new();
         private int _doctorIdCounter = 0;
-        private bool _isInitialized = false;
 
         private readonly HospitalManagementAvolonia.DataStructures.DoctorGraph _doctorGraph = new();
 
-        public DoctorService(IDatabaseService db)
+        public DoctorService(IDatabaseService db, IDepartmentService departmentService)
         {
             _db = db;
+            _departmentService = departmentService;
         }
 
         public async Task InitializeAsync()
         {
-            if (_isInitialized) return;
-            await LoadFromDbAsync();
-            _isInitialized = true;
+            await EnsureInitializedAsync(LoadFromDbAsync);
         }
 
         public async Task<List<Doctor>> GetAllDoctorsAsync()
         {
-            if (!_isInitialized) await InitializeAsync();
+            if (!IsInitialized) await InitializeAsync();
             return _doctors.Values.OrderBy(d => d.Id).ToList();
         }
 
         private async Task LoadFromDbAsync()
         {
             _doctors.Clear();
-            var deptRows = await _db.LoadDepartmentsAsync();
-            var deptMap = new Dictionary<int, Department>();
-            foreach (var dept in deptRows)
-                deptMap[dept.id] = new Department(dept.id, dept.name, dept.capacity);
+            var depts = await _departmentService.GetAllDepartmentsAsync();
+            var deptMap = depts.ToDictionary(d => d.Id, d => d);
 
             var dtos = await _db.LoadDoctorsAsync();
             foreach (var dto in dtos)
@@ -59,12 +56,12 @@ namespace HospitalManagementAvolonia.Services
         {
             _doctors.Clear();
             await LoadFromDbAsync();
-            _isInitialized = true;
+            SetInitialized(true);
         }
 
         public async Task<Doctor?> GetDoctorByIdAsync(int id)
         {
-            if (!_isInitialized) await InitializeAsync();
+            if (!IsInitialized) await InitializeAsync();
             _doctors.TryGetValue(id, out var doc);
             return doc;
         }
@@ -86,13 +83,8 @@ namespace HospitalManagementAvolonia.Services
             await GetAllDoctorsAsync();
             _doctorIdCounter++;
 
-            // Load department to attach it
-            var deptRows = await _db.LoadDepartmentsAsync();
-            Department? dept = null;
-            foreach (var row in deptRows)
-            {
-                if (row.id == departmentId) { dept = new Department(row.id, row.name, row.capacity); break; }
-            }
+            // Load department from service rather than direct database hit
+            var dept = await _departmentService.GetDepartmentByIdAsync(departmentId);
 
             var d = new Doctor(_doctorIdCounter, firstName, lastName, dept, phone)
             {
@@ -112,7 +104,7 @@ namespace HospitalManagementAvolonia.Services
 
         public async Task DeleteDoctorAsync(int id)
         {
-            if (!_isInitialized) await InitializeAsync();
+            if (!IsInitialized) await InitializeAsync();
             if (_doctors.Remove(id))
             {
                 _doctorGraph.RemoveDoctor(id);
@@ -122,10 +114,7 @@ namespace HospitalManagementAvolonia.Services
 
         public async Task<List<Department>> GetDepartmentsAsync()
         {
-            var rows = await _db.LoadDepartmentsAsync();
-            var list = new List<Department>();
-            foreach (var r in rows) list.Add(new Department(r.id, r.name, r.capacity));
-            return list;
+            return await _departmentService.GetAllDepartmentsAsync();
         }
 
         // DoctorGraph methods

@@ -8,12 +8,11 @@ using HospitalManagementAvolonia.Models;
 
 namespace HospitalManagementAvolonia.Services
 {
-    public class PatientService : IPatientService
+    public class PatientService : ServiceBase, IPatientService
     {
         private readonly IDatabaseService _db;
         private readonly Dictionary<int, Patient> _patients = new();
         private int _patientIdCounter = 0;
-        private bool _isInitialized = false;
 
         private readonly PatientBST _patientBST = new();
         private readonly PatientAVL _patientAVL = new();
@@ -27,36 +26,35 @@ namespace HospitalManagementAvolonia.Services
 
         public async Task InitializeAsync()
         {
-            if (_isInitialized) return;
-
-            var dtos = await _db.LoadPatientsAsync();
-            foreach (var dto in dtos)
+            await EnsureInitializedAsync(async () =>
             {
-                if (dto.id > _patientIdCounter) _patientIdCounter = dto.id;
-                if (DateTime.TryParse(dto.birthDate, out DateTime bd))
+                var dtos = await _db.LoadPatientsAsync();
+                foreach (var dto in dtos)
                 {
-                    var p = new Patient(dto.id, dto.firstName, dto.lastName, dto.nationalId, dto.phone, bd);
-                    _patients[p.Id] = p;
-                    
-                    // Insert into data structures
-                    _patientBST.Insert(p);
-                    _patientAVL.Insert(p);
-                    _patientTrie.Insert(p);
+                    if (dto.id > _patientIdCounter) _patientIdCounter = dto.id;
+                    if (DateTime.TryParse(dto.birthDate, out DateTime bd))
+                    {
+                        var p = new Patient(dto.id, dto.firstName, dto.lastName, dto.nationalId, dto.phone, bd);
+                        _patients[p.Id] = p;
+                        
+                        // Insert into data structures
+                        _patientBST.Insert(p);
+                        _patientAVL.Insert(p);
+                        _patientTrie.Insert(p);
+                    }
                 }
-            }
-
-            _isInitialized = true;
+            });
         }
 
         public async Task<List<Patient>> GetAllPatientsAsync()
         {
-            if (!_isInitialized) await InitializeAsync();
+            if (!IsInitialized) await InitializeAsync();
             return _patients.Values.OrderBy(p => p.Id).ToList();
         }
 
         public async Task<Patient?> GetPatientByIdAsync(int id)
         {
-            if (!_isInitialized) await InitializeAsync();
+            if (!IsInitialized) await InitializeAsync();
             _patients.TryGetValue(id, out var patient);
             return patient;
         }
@@ -85,7 +83,7 @@ namespace HospitalManagementAvolonia.Services
 
         public async Task<Patient> AddPatientAsync(string firstName, string lastName, string nationalId, string phone, DateTime birthDate)
         {
-            if (!_isInitialized) await InitializeAsync();
+            if (!IsInitialized) await InitializeAsync();
 
             _patientIdCounter++;
             var p = new Patient(_patientIdCounter, firstName, lastName, nationalId, phone, birthDate);
@@ -101,7 +99,7 @@ namespace HospitalManagementAvolonia.Services
 
         public async Task UpdatePatientAsync(Patient patient)
         {
-            if (!_isInitialized) await InitializeAsync();
+            if (!IsInitialized) await InitializeAsync();
 
             if (_patients.TryGetValue(patient.Id, out var existing))
             {
@@ -121,7 +119,7 @@ namespace HospitalManagementAvolonia.Services
 
         public async Task DeletePatientAsync(int id)
         {
-            if (!_isInitialized) await InitializeAsync();
+            if (!IsInitialized) await InitializeAsync();
 
             if (_patients.TryGetValue(id, out var p))
             {

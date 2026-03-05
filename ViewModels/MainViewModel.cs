@@ -71,9 +71,17 @@ namespace HospitalManagementAvolonia.ViewModels
 
         public async System.Threading.Tasks.Task InitializeAllAsync()
         {
-            await _patientService.InitializeAsync();
-            await _appointmentService.InitializeAsync();
+            // First load departments since doctors depend on them
             await _departmentService.InitializeAsync();
+            
+            // Patients and Doctors can load in parallel
+            await System.Threading.Tasks.Task.WhenAll(
+                _patientService.InitializeAsync(),
+                _doctorService.InitializeAsync()
+            );
+            
+            // Appointments depend on both Patients and Doctors
+            await _appointmentService.InitializeAsync();
 
             await Doctors.RefreshDataAsync();
             await Dashboard.RefreshDataAsync();
