@@ -87,7 +87,13 @@ namespace HospitalManagementAvolonia.ViewModels
             // Appointments depend on both Patients and Doctors
             await _appointmentService.InitializeAsync();
 
+            // Refresh doctors first (Shifts depends on them), then load all three new modules
             await Doctors.RefreshDataAsync();
+            await System.Threading.Tasks.Task.WhenAll(
+                Prescriptions.RefreshDataAsync(),
+                Billing.RefreshDataAsync(),
+                Shifts.RefreshDataAsync()
+            );
             await Dashboard.RefreshDataAsync();
         }
 
