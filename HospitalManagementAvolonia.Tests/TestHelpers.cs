@@ -25,4 +25,9 @@ public static class TestHelpers
         return new Appointment(id, patient ?? CreatePatient(), doctor ?? CreateDoctor(),
             start ?? new DateTime(2026, 3, 5, 10, 0, 0));
     }
+
+    public static Department CreateDepartment(int id = 1, string name = "Kardiyoloji", int capacity = 20)
+    {
+        return new Department(id, name, capacity);
+    }
 }

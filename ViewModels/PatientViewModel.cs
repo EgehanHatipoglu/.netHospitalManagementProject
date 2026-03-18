@@ -24,6 +24,16 @@ namespace HospitalManagementAvolonia.ViewModels
         [ObservableProperty] private string _searchQuery = "";
         [ObservableProperty] private Patient? _selectedPatient;
 
+        // BST panel properties
+        [ObservableProperty] private string _bstSearchQuery = "";
+        [ObservableProperty] private string _bstSearchResult = "";
+        public ObservableCollection<Patient> BstPatients { get; } = new();
+
+        // AVL panel properties
+        [ObservableProperty] private string _avlSearchQuery = "";
+        [ObservableProperty] private string _avlSearchResult = "";
+        public ObservableCollection<Patient> AvlPatients { get; } = new();
+
         [ObservableProperty] private bool _isEditing;
         private int? _editingPatientId;
 
@@ -156,23 +166,24 @@ namespace HospitalManagementAvolonia.ViewModels
         // --- Data Structure Specific Commands ---
 
         [RelayCommand]
-        public void SearchBST(string query)
+        public void SearchBST()
         {
-            if (string.IsNullOrWhiteSpace(query)) return;
-            var parts = query.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (string.IsNullOrWhiteSpace(BstSearchQuery)) return;
+            var parts = BstSearchQuery.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             var fName = parts[0];
             var lName = parts.Length > 1 ? parts[1] : "";
             
             var p = _patientService.SearchBST(fName, lName);
             if (p != null)
             {
-                Patients.Load(new[] { p });
-                ToastService.Instance.Info("BST ile bulundu: " + p.FullName);
+                BstSearchResult = "✓ BST ile bulundu: " + p.FullName;
+                BstPatients.Clear();
+                BstPatients.Add(p);
             }
             else
             {
-                Patients.Load(Array.Empty<Patient>());
-                ToastService.Instance.Warning("BST'de bulunamadı.");
+                BstSearchResult = "✗ BST'de bulunamadı.";
+                BstPatients.Clear();
             }
         }
 
@@ -180,28 +191,30 @@ namespace HospitalManagementAvolonia.ViewModels
         public void ListBST()
         {
             var list = _patientService.GetAllFromBST();
-            Patients.Load(list);
-            ToastService.Instance.Info($"BST'den {list.Count} kayıt çevrildi.");
+            BstPatients.Clear();
+            foreach (var p in list) BstPatients.Add(p);
+            BstSearchResult = $"{list.Count} kayıt listelendi.";
         }
 
         [RelayCommand]
-        public void SearchAVL(string query)
+        public void SearchAVL()
         {
-            if (string.IsNullOrWhiteSpace(query)) return;
-            var parts = query.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (string.IsNullOrWhiteSpace(AvlSearchQuery)) return;
+            var parts = AvlSearchQuery.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             var fName = parts[0];
             var lName = parts.Length > 1 ? parts[1] : "";
             
             var p = _patientService.SearchAVL(fName, lName);
             if (p != null)
             {
-                Patients.Load(new[] { p });
-                ToastService.Instance.Info("AVL ile bulundu: " + p.FullName);
+                AvlSearchResult = "✓ AVL ile bulundu: " + p.FullName;
+                AvlPatients.Clear();
+                AvlPatients.Add(p);
             }
             else
             {
-                Patients.Load(Array.Empty<Patient>());
-                ToastService.Instance.Warning("AVL'de bulunamadı.");
+                AvlSearchResult = "✗ AVL'de bulunamadı.";
+                AvlPatients.Clear();
             }
         }
 
@@ -209,8 +222,9 @@ namespace HospitalManagementAvolonia.ViewModels
         public void ListAVL()
         {
             var list = _patientService.GetAllFromAVL();
-            Patients.Load(list);
-            ToastService.Instance.Info($"AVL'den {list.Count} kayıt çevrildi.");
+            AvlPatients.Clear();
+            foreach (var p in list) AvlPatients.Add(p);
+            AvlSearchResult = $"{list.Count} kayıt listelendi.";
         }
 
         [RelayCommand]

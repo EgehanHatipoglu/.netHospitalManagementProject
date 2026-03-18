@@ -17,6 +17,11 @@ namespace HospitalManagementAvolonia.Models
         public DateTime End { get; set; }
         public string Status { get; set; }
 
+        // Convenience properties for DataGrid bindings
+        public string PatientName => $"{Patient.FirstName} {Patient.LastName}";
+        public string DoctorName => $"Dr. {Doctor.FirstName} {Doctor.LastName}";
+        public string DateTimeFormatted => Start.ToString("dd/MM/yyyy HH:mm");
+
         public Appointment(int id, Patient patient, Doctor doctor, DateTime start)
         {
             Id = id;

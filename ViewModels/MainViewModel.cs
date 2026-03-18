@@ -1,56 +1,55 @@
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using HospitalManagementAvolonia.Data;
 using HospitalManagementAvolonia.Services;
 
 namespace HospitalManagementAvolonia.ViewModels
 {
     public partial class MainViewModel : ViewModelBase
     {
-        private readonly IPatientService _patientService;
-        private readonly IDoctorService _doctorService;
-        private readonly IAppointmentService _appointmentService;
-        private readonly IDepartmentService _departmentService;
-        private readonly IEmergencyService _emergencyService;
-        private readonly IUndoService _undoService;
-        private readonly IDatabaseService _db;
+        private readonly IPatientService      _patientService;
+        private readonly IDoctorService       _doctorService;
+        private readonly IAppointmentService  _appointmentService;
+        private readonly IDepartmentService   _departmentService;
+        private readonly IEmergencyService    _emergencyService;
+        private readonly IUndoService         _undoService;
+        private readonly INavigationService   _navigationService;   // ✅ NEW
 
-        [ObservableProperty] private string _activePanel = "Dashboard";
-        [ObservableProperty] private string _statusMessage = "✓ Sistem hazır.";
-        [ObservableProperty] private bool _isSidebarCollapsed = false;
-        [ObservableProperty] private bool _isLightTheme = false;
+        [ObservableProperty] private bool   _isSidebarCollapsed = false;
+        [ObservableProperty] private bool   _isLightTheme       = false;
 
         public string ThemeButtonText => IsLightTheme ? "☀️  Açık Tema" : "🌙  Koyu Tema";
         public string ThemeButtonIcon => IsLightTheme ? "☀️" : "🌙";
 
-        // Undo Properties
-        [ObservableProperty] private string _undoPeekMessage = "";
-        [ObservableProperty] private string _undoResultMessage = "";
-
-        // --- Sub-ViewModels ---
-        public DashboardViewModel    Dashboard    { get; }
-        public PatientViewModel      Patients     { get; }
-        public DoctorViewModel       Doctors      { get; }
-        public AppointmentViewModel  Appointments { get; }
-        public EmergencyViewModel    Emergency    { get; }
-        public DepartmentViewModel   Departments  { get; }
-        public StatsViewModel        Stats        { get; }
-        public UndoViewModel         Undo         { get; }
-
+        // ── Sub-ViewModels ────────────────────────────────────────────────────
+        public DashboardViewModel    Dashboard     { get; }
+        public PatientViewModel      Patients      { get; }
+        public DoctorViewModel       Doctors       { get; }
+        public AppointmentViewModel  Appointments  { get; }
+        public EmergencyViewModel    Emergency     { get; }
+        public DepartmentViewModel   Departments   { get; }
+        public StatsViewModel        Stats         { get; }
+        public UndoViewModel         Undo          { get; }
         public PrescriptionViewModel Prescriptions { get; }
         public BillingViewModel      Billing       { get; }
         public ShiftViewModel        Shifts        { get; }
 
-        public ToastService Toast => ToastService.Instance;
+        public ToastService          Toast         => ToastService.Instance;
+
+        // ✅ Expose navigation service so MainWindow can subscribe
+        public INavigationService Navigation => _navigationService;
 
         public MainViewModel(
-            IPatientService patientService,
-            IDoctorService doctorService,
-            IAppointmentService appointmentService,
-            IDepartmentService departmentService,
-            IEmergencyService emergencyService,
-            IUndoService undoService,
-            IDatabaseService db)
+            IPatientService      patientService,
+            IDoctorService       doctorService,
+            IAppointmentService  appointmentService,
+            IDepartmentService   departmentService,
+            IEmergencyService    emergencyService,
+            IUndoService         undoService,
+            INavigationService   navigationService,   // ✅ injected
+            IBillingService      billingService,
+            IPrescriptionService prescriptionService,
+            IShiftService        shiftService)
         {
             _patientService     = patientService;
             _doctorService      = doctorService;
@@ -58,7 +57,7 @@ namespace HospitalManagementAvolonia.ViewModels
             _departmentService  = departmentService;
             _emergencyService   = emergencyService;
             _undoService        = undoService;
-            _db                 = db;
+            _navigationService  = navigationService;
 
             Dashboard     = new DashboardViewModel(_patientService, _doctorService, _appointmentService);
             Patients      = new PatientViewModel(_patientService);
@@ -67,75 +66,45 @@ namespace HospitalManagementAvolonia.ViewModels
             Emergency     = new EmergencyViewModel(_emergencyService, _patientService);
             Departments   = new DepartmentViewModel(_departmentService);
             Stats         = new StatsViewModel(_patientService, _doctorService, _appointmentService);
-            Prescriptions = new PrescriptionViewModel(_db, _patientService, _doctorService);
-            Billing       = new BillingViewModel(_db);
-            Shifts        = new ShiftViewModel(_db, _doctorService);
+            Prescriptions = new PrescriptionViewModel(prescriptionService, _patientService, _doctorService);
+            Billing       = new BillingViewModel(billingService);
+            Shifts        = new ShiftViewModel(shiftService, _doctorService);
             Undo          = new UndoViewModel(_undoService);
+
+            // ✅ Register refresh callbacks — NavigationService calls these on navigate
+            if (_navigationService is NavigationService ns)
+            {
+                ns.RegisterRefresh("Dashboard",    () => Dashboard.RefreshDataCommand.Execute(null));
+                ns.RegisterRefresh("Patients",     () => Patients.RefreshDataCommand.Execute(null));
+                ns.RegisterRefresh("Doctors",      () => Doctors.RefreshDataCommand.Execute(null));
+                ns.RegisterRefresh("Appointments", () => Appointments.RefreshDataCommand.Execute(null));
+                ns.RegisterRefresh("Stats",        () => Stats.RefreshDataCommand.Execute(null));
+                ns.RegisterRefresh("Prescription", () => Prescriptions.RefreshDataCommand.Execute(null));
+                ns.RegisterRefresh("Billing",      () => Billing.RefreshDataCommand.Execute(null));
+                ns.RegisterRefresh("Shifts",       () => Shifts.RefreshDataCommand.Execute(null));
+                ns.RegisterRefresh("Undo",         () => Undo.RefreshDataCommand.Execute(null));
+            }
         }
 
-        public async System.Threading.Tasks.Task InitializeAllAsync()
+        public async Task InitializeAllAsync()
         {
-            // First load departments since doctors depend on them
             await _departmentService.InitializeAsync();
-            
-            // Patients and Doctors can load in parallel
-            await System.Threading.Tasks.Task.WhenAll(
+            await Task.WhenAll(
                 _patientService.InitializeAsync(),
-                _doctorService.InitializeAsync()
-            );
-            
-            // Appointments depend on both Patients and Doctors
+                _doctorService.InitializeAsync());
             await _appointmentService.InitializeAsync();
 
-            // Refresh doctors first (Shifts depends on them), then load all three new modules
             await Doctors.RefreshDataAsync();
-            await System.Threading.Tasks.Task.WhenAll(
+            await Task.WhenAll(
                 Prescriptions.RefreshDataAsync(),
                 Billing.RefreshDataAsync(),
-                Shifts.RefreshDataAsync()
-            );
+                Shifts.RefreshDataAsync());
             await Dashboard.RefreshDataAsync();
         }
 
+        // ✅ FIX: NavCommand now delegates to NavigationService — no switch needed
         [RelayCommand]
-        public void ExecuteUndo()
-        {
-            var op = _undoService.UndoLastOperation();
-            if (op != null)
-            {
-                UndoResultMessage = $"Geri Alındı: {op}";
-            }
-            else
-            {
-                UndoResultMessage = "Geri alınacak işlem yok.";
-            }
-            UpdateUndoPeek();
-        }
-
-        public void UpdateUndoPeek()
-        {
-            UndoPeekMessage = _undoService.Peek();
-        }
-
-        [RelayCommand]
-        private void Navigate(string panelName)
-        {
-            if (string.IsNullOrWhiteSpace(panelName)) return;
-            ActivePanel = panelName;
-
-            switch (panelName)
-            {
-                case "Dashboard":    Dashboard.RefreshDataCommand.Execute(null);     break;
-                case "Patients":     Patients.RefreshDataCommand.Execute(null);      break;
-                case "Doctors":      Doctors.RefreshDataCommand.Execute(null);       break;
-                case "Appointments": Appointments.RefreshDataCommand.Execute(null);  break;
-                case "Stats":        Stats.RefreshDataCommand.Execute(null);         break;
-                case "Prescription": Prescriptions.RefreshDataCommand.Execute(null); break;
-                case "Billing":      Billing.RefreshDataCommand.Execute(null);       break;
-                case "Shifts":       Shifts.RefreshDataCommand.Execute(null);        break;
-                case "Undo":         Undo.RefreshDataCommand.Execute(null);          break;
-            }
-        }
+        private void Navigate(string panelName) => _navigationService.NavigateTo(panelName);
 
         [RelayCommand]
         private void ToggleSidebar() => IsSidebarCollapsed = !IsSidebarCollapsed;
@@ -144,18 +113,14 @@ namespace HospitalManagementAvolonia.ViewModels
         private void ToggleTheme()
         {
             var app = Avalonia.Application.Current;
-            if (app != null)
-            {
-                IsLightTheme = !IsLightTheme;
-                app.RequestedThemeVariant = IsLightTheme
-                    ? Avalonia.Styling.ThemeVariant.Light
-                    : Avalonia.Styling.ThemeVariant.Dark;
-
-                OnPropertyChanged(nameof(ThemeButtonText));
-                OnPropertyChanged(nameof(ThemeButtonIcon));
-
-                ToastService.Instance.Info(IsLightTheme ? "Açık temaya geçildi." : "Karanlık temaya geçildi.");
-            }
+            if (app == null) return;
+            IsLightTheme = !IsLightTheme;
+            app.RequestedThemeVariant = IsLightTheme
+                ? Avalonia.Styling.ThemeVariant.Light
+                : Avalonia.Styling.ThemeVariant.Dark;
+            OnPropertyChanged(nameof(ThemeButtonText));
+            OnPropertyChanged(nameof(ThemeButtonIcon));
+            ToastService.Instance.Info(IsLightTheme ? "Açık temaya geçildi." : "Karanlık temaya geçildi.");
         }
     }
 }

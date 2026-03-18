@@ -7,7 +7,7 @@
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <RootNamespace>HospitalManagementAvolonia</RootNamespace>
-    <DefaultItemExcludes>$(DefaultItemExcludes);HospitalManagementAvolonia.Tests\**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);HospitalManagementAvolonia.Tests\**;newCodes\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>

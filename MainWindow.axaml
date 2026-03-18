@@ -505,27 +505,28 @@
                                 </StackPanel>
                                 
                                 <!-- Table View -->
-                                <StackPanel x:Name="AppTableView" IsVisible="True">
-                                    <DataGrid x:Name="DgAppointments" MaxHeight="250" IsReadOnly="True" AutoGenerateColumns="False"
+                                <StackPanel x:Name="AppTableView" IsVisible="{Binding IsTableView}">
+                                    <DataGrid x:Name="DgAppointments" ItemsSource="{Binding Appointments}" SelectedItem="{Binding SelectedAppointment}"
+                                              MaxHeight="250" IsReadOnly="True" AutoGenerateColumns="False"
                                               GridLinesVisibility="Horizontal" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
                                         <DataGrid.Columns>
                                             <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="50"/>
                                             <DataGridTextColumn Header="Hasta" Binding="{Binding PatientName}" Width="*"/>
                                             <DataGridTextColumn Header="Doktor" Binding="{Binding DoctorName}" Width="*"/>
-                                            <DataGridTextColumn Header="Tarih" Binding="{Binding DateTime}" Width="130"/>
+                                            <DataGridTextColumn Header="Tarih" Binding="{Binding DateTimeFormatted}" Width="130"/>
                                             <DataGridTextColumn Header="Durum" Binding="{Binding Status}" Width="90"/>
                                         </DataGrid.Columns>
                                     </DataGrid>
                                 </StackPanel>
 
                                 <!-- Calendar View -->
-                                <StackPanel x:Name="AppCalendarView" IsVisible="False" Spacing="10">
+                                <StackPanel x:Name="AppCalendarView" IsVisible="{Binding IsCalendarView}" Spacing="10">
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="16">
                                         <Button Content="◀ Önceki Hafta" Command="{Binding PrevWeekCommand}" Background="{DynamicResource SidebarBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}" Padding="12,6" CornerRadius="4"/>
                                         <Button Content="📅 Bugün" Command="{Binding GoTodayCommand}" Background="{DynamicResource SidebarBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}" Padding="12,6" CornerRadius="4"/>
                                         <Button Content="Sonraki Hafta ▶" Command="{Binding NextWeekCommand}" Background="{DynamicResource SidebarBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}" Padding="12,6" CornerRadius="4"/>
                                     </StackPanel>
-                                    <TextBlock x:Name="TxtWeekLabel" FontSize="14" FontWeight="Bold" Foreground="{StaticResource AccentBlueBrush}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="{Binding CurrentWeekLabel}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource AccentBlueBrush}" HorizontalAlignment="Center"/>
                                     <ContentControl x:Name="CalendarContent" MinHeight="300" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" ClipToBounds="True"/>
                                 </StackPanel>
 
@@ -537,13 +538,13 @@
                             <StackPanel Spacing="8">
                                 <TextBlock Text="Doktor Kuyruğu ve Muayene" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBox x:Name="TxtQueueDoctorId" Width="80" Watermark="Doktor ID"/>
+                                    <TextBox Text="{Binding QueueDoctorId, Mode=TwoWay}" Width="80" Watermark="Doktor ID"/>
                                     <Button Content="Kuyruğu Göster" Command="{Binding ShowDoctorQueueCommand}"
                                             Background="{StaticResource AccentBlueBrush}" Foreground="White" Padding="16,8" CornerRadius="6"/>
                                     <Button x:Name="BtnExaminePatient" Content="Muayene Et" Command="{Binding ExaminePatientCommand}"
                                             Background="{StaticResource AccentGreenBrush}" Foreground="White" Padding="16,8" CornerRadius="6"/>
                                 </StackPanel>
-                                <ListBox x:Name="LbDoctorQueue" MaxHeight="200" Background="{DynamicResource SidebarBgBrush}"
+                                <ListBox ItemsSource="{Binding DoctorQueueItems}" MaxHeight="200" Background="{DynamicResource SidebarBgBrush}"
                                          Foreground="{DynamicResource TextPrimaryBrush}"/>
                             </StackPanel>
                         </Border>
@@ -554,12 +555,12 @@
                             <StackPanel Spacing="8">
                                 <TextBlock Text="Doktor Müsaitlik Durumu" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBox x:Name="TxtAvailDoctorId" Width="80" Watermark="Doktor ID"/>
-                                    <DatePicker x:Name="DpAvailDate"/>
+                                    <TextBox Text="{Binding AvailDoctorId, Mode=TwoWay}" Width="80" Watermark="Doktor ID"/>
+                                    <DatePicker SelectedDate="{Binding AvailDate, Mode=TwoWay}"/>
                                     <Button Content="Müsaitliği Göster" Command="{Binding ShowAvailabilityCommand}"
                                             Background="{StaticResource AccentBlueBrush}" Foreground="White" Padding="16,8" CornerRadius="6"/>
                                 </StackPanel>
-                                <ItemsControl x:Name="IcAvailability">
+                                <ItemsControl ItemsSource="{Binding AvailabilitySlots}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Border Background="{Binding BgBrush}" BorderBrush="{Binding BorderBrush}" BorderThickness="1" CornerRadius="4" Padding="12,6" Margin="0,2" ClipToBounds="True">

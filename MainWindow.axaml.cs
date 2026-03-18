@@ -1,23 +1,24 @@
-using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using Avalonia.Controls;
 using HospitalManagementAvolonia.Data;
+using HospitalManagementAvolonia.Services;
+using HospitalManagementAvolonia.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace HospitalManagementAvolonia;
 
 public partial class MainWindow : Window
 {
-    private StackPanel[] _allPanels = null!;
+    // ✅ FIX: Only UI mapping lives here — zero business logic
     private readonly Dictionary<string, StackPanel> _panelMap = new();
+    private StackPanel[] _allPanels = null!;
 
     public MainWindow()
     {
         InitializeComponent();
 
-        // Resolve the entire MVVM data context tree from DI and bind it to the view
-        DataContext = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
-            .GetRequiredService<ViewModels.MainViewModel>(App.Services!);
+        var vm = App.Services!.GetRequiredService<MainViewModel>();
+        DataContext = vm;
 
         _allPanels = new[]
         {
@@ -26,7 +27,6 @@ public partial class MainWindow : Window
             PanelPrescription, PanelShifts, PanelBilling
         };
 
-        // Build a map from panel name to panel control
         _panelMap["Dashboard"]    = PanelDashboard;
         _panelMap["Patients"]     = PanelPatients;
         _panelMap["Doctors"]      = PanelDoctors;
@@ -41,55 +41,42 @@ public partial class MainWindow : Window
         _panelMap["Shifts"]       = PanelShifts;
         _panelMap["Billing"]      = PanelBilling;
 
-        // Feature: Responsive Sidebar
-        this.SizeChanged += (s, e) =>
+        // ✅ FIX: Subscribe to NavigationService — no PropertyChanged hacks
+        vm.Navigation.Navigated += OnNavigated;
+
+        // Responsive sidebar
+        SizeChanged += (_, e) =>
         {
-            if (DataContext is ViewModels.MainViewModel vm)
-            {
-                if (e.NewSize.Width < 900 && !vm.IsSidebarCollapsed)
-                    vm.IsSidebarCollapsed = true;
-                else if (e.NewSize.Width >= 900 && vm.IsSidebarCollapsed)
-                    vm.IsSidebarCollapsed = false;
-            }
+            if (vm.IsSidebarCollapsed != (e.NewSize.Width < 900))
+                vm.IsSidebarCollapsed = e.NewSize.Width < 900;
         };
 
-        // Initialize everything sequentially when window opens
-        this.Opened += async (s, e) => await InitializeAsync();
+        Opened += async (_, _) => await InitializeAsync();
     }
 
-    public async System.Threading.Tasks.Task InitializeAsync()
+    // ✅ FIX: Only responsible for swapping panels — called by NavigationService event
+    private void OnNavigated(string panelName)
     {
-        var db = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
-            .GetRequiredService<IDatabaseService>(App.Services!);
-        await db.InitializeDatabaseAsync();
-
-        if (DataContext is ViewModels.MainViewModel mvm)
-        {
-            await mvm.InitializeAllAsync();
-
-            // Listen to ActivePanel changes from ViewModel so ShowPanel() is triggered automatically
-            mvm.PropertyChanged += OnViewModelPropertyChanged;
-        }
-
-        // Initial Panel View
-        ShowPanel(PanelDashboard);
+        if (_panelMap.TryGetValue(panelName, out var panel))
+            ShowPanel(panel);
     }
 
-    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == nameof(ViewModels.MainViewModel.ActivePanel)
-            && sender is ViewModels.MainViewModel vm)
-        {
-            if (_panelMap.TryGetValue(vm.ActivePanel, out var panel))
-                ShowPanel(panel);
-        }
-    }
-
-    private void ShowPanel(StackPanel targetPanel)
+    private void ShowPanel(StackPanel target)
     {
         foreach (var p in _allPanels)
+            if (p != null) p.IsVisible = p == target;
+    }
+
+    private async System.Threading.Tasks.Task InitializeAsync()
+    {
+        var db = App.Services!.GetRequiredService<IDatabaseService>();
+        await db.InitializeDatabaseAsync();
+
+        if (DataContext is MainViewModel vm)
         {
-            if (p != null) p.IsVisible = (p == targetPanel);
+            await vm.InitializeAllAsync();
+            // Navigate to default panel after init
+            vm.Navigation.NavigateTo("Dashboard");
         }
     }
 }

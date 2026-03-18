@@ -13,10 +13,7 @@ public partial class App : Application
 {
     public static IServiceProvider? Services { get; private set; }
 
-    public override void Initialize()
-    {
-        AvaloniaXamlLoader.Load(this);
-    }
+    public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
     public override void OnFrameworkInitializationCompleted()
     {
@@ -25,29 +22,35 @@ public partial class App : Application
         Services = services.BuildServiceProvider();
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-        {
-            var mainWindow = new MainWindow();
-            desktop.MainWindow = mainWindow;
-        }
+            desktop.MainWindow = new MainWindow();
 
         base.OnFrameworkInitializationCompleted();
     }
 
-    private void ConfigureServices(IServiceCollection services)
+    private static void ConfigureServices(IServiceCollection services)
     {
-        // Database — Singleton: tek bir DB bağlantısı yeterli
+        // ── Infrastructure ────────────────────────────────────────────────────
         services.AddSingleton<IDatabaseService>(new DatabaseManager("hospital.db"));
 
-        // Business Services — Singleton: state tutuyorlar (cache/dictionary)
-        services.AddSingleton<IPatientService, PatientService>();
-        services.AddSingleton<IDoctorService, DoctorService>();
-        services.AddSingleton<IAppointmentService, AppointmentService>();
-        services.AddSingleton<IDepartmentService, DepartmentService>();
-        services.AddSingleton<IEmergencyService, EmergencyService>();
-        services.AddSingleton<IUndoService, UndoService>();
+        // ── Navigation ────────────────────────────────────────────────────────
+        // ✅ NEW: NavigationService registered as Singleton
+        services.AddSingleton<NavigationService>();
+        services.AddSingleton<INavigationService>(sp => sp.GetRequiredService<NavigationService>());
 
-        // MainViewModel — Transient: her seferinde taze instance
-        // ✅ IDatabaseService artık MainViewModel'e de inject ediliyor
+        // ── Domain Services ───────────────────────────────────────────────────
+        services.AddSingleton<IDepartmentService,  DepartmentService>();
+        services.AddSingleton<IPatientService,     PatientService>();
+        services.AddSingleton<IDoctorService,      DoctorService>();
+        services.AddSingleton<IAppointmentService, AppointmentService>();
+        services.AddSingleton<IEmergencyService,   EmergencyService>();
+        services.AddSingleton<IUndoService,        UndoService>();
+
+        // ✅ NEW: Services that previously were bypassed via IDatabaseService in ViewModels
+        services.AddSingleton<IBillingService,      BillingService>();
+        services.AddSingleton<IPrescriptionService, PrescriptionService>();
+        services.AddSingleton<IShiftService,        ShiftService>();
+
+        // ── Presentation ──────────────────────────────────────────────────────
         services.AddTransient<MainViewModel>();
     }
 }

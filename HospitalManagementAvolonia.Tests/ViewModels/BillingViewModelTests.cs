@@ -1,6 +1,6 @@
 using FluentAssertions;
-using HospitalManagementAvolonia.Data;
 using HospitalManagementAvolonia.Models;
+using HospitalManagementAvolonia.Services;
 using HospitalManagementAvolonia.ViewModels;
 using Moq;
 
@@ -8,15 +8,15 @@ namespace HospitalManagementAvolonia.Tests.ViewModels;
 
 public class BillingViewModelTests
 {
-    private readonly Mock<IDatabaseService> _mockDb;
+    private readonly Mock<IBillingService> _mockBillingService;
     private readonly BillingViewModel _vm;
 
     public BillingViewModelTests()
     {
-        _mockDb = new Mock<IDatabaseService>();
-        _mockDb.Setup(db => db.LoadInvoicesAsync())
-            .ReturnsAsync(new List<(int, int, string, string, string, double, double, string)>());
-        _vm = new BillingViewModel(_mockDb.Object);
+        _mockBillingService = new Mock<IBillingService>();
+        _mockBillingService.Setup(s => s.GetAllAsync())
+            .ReturnsAsync(new List<Invoice>());
+        _vm = new BillingViewModel(_mockBillingService.Object);
     }
 
     // ============ VALIDATION — MISSING FIELDS ============
@@ -29,7 +29,9 @@ public class BillingViewModelTests
         await _vm.CreateInvoiceAsync();
 
         _vm.ValidationMessage.Should().Contain("randevu");
-        _mockDb.Verify(db => db.SaveInvoiceAsync(It.IsAny<Invoice>()), Times.Never);
+        _mockBillingService.Verify(s => s.CreateInvoiceAsync(
+            It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string>(),
+            It.IsAny<decimal>(), It.IsAny<decimal>()), Times.Never);
     }
 
     [Fact]
@@ -41,7 +43,9 @@ public class BillingViewModelTests
         await _vm.CreateInvoiceAsync();
 
         _vm.ValidationMessage.Should().Contain("Hasta");
-        _mockDb.Verify(db => db.SaveInvoiceAsync(It.IsAny<Invoice>()), Times.Never);
+        _mockBillingService.Verify(s => s.CreateInvoiceAsync(
+            It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string>(),
+            It.IsAny<decimal>(), It.IsAny<decimal>()), Times.Never);
     }
 
     [Fact]
@@ -69,7 +73,9 @@ public class BillingViewModelTests
         await _vm.CreateInvoiceAsync();
 
         _vm.ValidationMessage.Should().Contain("Tutar");
-        _mockDb.Verify(db => db.SaveInvoiceAsync(It.IsAny<Invoice>()), Times.Never);
+        _mockBillingService.Verify(s => s.CreateInvoiceAsync(
+            It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string>(),
+            It.IsAny<decimal>(), It.IsAny<decimal>()), Times.Never);
     }
 
     [Fact]
@@ -99,7 +105,9 @@ public class BillingViewModelTests
         await _vm.CreateInvoiceAsync();
 
         _vm.ValidationMessage.Should().Contain("Sigorta");
-        _mockDb.Verify(db => db.SaveInvoiceAsync(It.IsAny<Invoice>()), Times.Never);
+        _mockBillingService.Verify(s => s.CreateInvoiceAsync(
+            It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string>(),
+            It.IsAny<decimal>(), It.IsAny<decimal>()), Times.Never);
     }
 
     [Fact]
@@ -119,8 +127,12 @@ public class BillingViewModelTests
     // ============ VALID CREATION ============
 
     [Fact]
-    public async Task CreateInvoiceAsync_ValidData_ShouldSaveAndAddToCollection()
+    public async Task CreateInvoiceAsync_ValidData_ShouldCallServiceAndAddToCollection()
     {
+        var expectedInvoice = new Invoice(1, 1, "Ali Yılmaz", "Dr. Mehmet", DateTime.Now, 500, 20);
+        _mockBillingService.Setup(s => s.CreateInvoiceAsync(1, "Ali Yılmaz", "Dr. Mehmet", 500m, 20m))
+            .ReturnsAsync(expectedInvoice);
+
         _vm.AppointmentId = 1;
         _vm.PatientName = "Ali Yılmaz";
         _vm.DoctorName = "Dr. Mehmet";
@@ -132,7 +144,7 @@ public class BillingViewModelTests
         _vm.ValidationMessage.Should().BeEmpty();
         _vm.Invoices.Should().HaveCount(1);
         _vm.Invoices[0].PatientName.Should().Be("Ali Yılmaz");
-        _mockDb.Verify(db => db.SaveInvoiceAsync(It.IsAny<Invoice>()), Times.Once);
+        _mockBillingService.Verify(s => s.CreateInvoiceAsync(1, "Ali Yılmaz", "Dr. Mehmet", 500m, 20m), Times.Once);
     }
 
     // ============ MARK AS PAID ============
@@ -160,7 +172,7 @@ public class BillingViewModelTests
     }
 
     [Fact]
-    public async Task MarkAsPaidAsync_PendingInvoice_ShouldUpdateStatus()
+    public async Task MarkAsPaidAsync_PendingInvoice_ShouldCallService()
     {
         var invoice = new Invoice(1, 1, "Ali", "Dr. X", DateTime.Now, 500, 10);
         _vm.Invoices.Add(invoice);
@@ -168,7 +180,6 @@ public class BillingViewModelTests
 
         await _vm.MarkAsPaidAsync();
 
-        invoice.Status.Should().Be("Paid");
-        _mockDb.Verify(db => db.SaveInvoiceAsync(invoice), Times.Once);
+        _mockBillingService.Verify(s => s.MarkAsPaidAsync(1), Times.Once);
     }
 }
